@@ -7,15 +7,51 @@ import pytest
 #  6.1 Mandatory Tests
 # ##################################################################
 
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_missing_product_id_definition():
+import json
+import copy
+from pathlib import Path
+
+from csaf_validator.validator import Validator
+from csaf_validator.rules import Rule
+
+def test_mandatory_missing_product_id_definition(data_path, schema_path):
     """
     6.1.1 Missing Definition of Product ID
     For each element of type product_id_t that is not inside a full_product_name_t,
     it MUST be tested that the full_product_name_t element with the matching
     product_id exists.
     """
-    pass
+    csaf_file = data_path / 'cve-2016-3674.json'
+    with open(csaf_file, 'r') as f:
+        doc = json.load(f)
+
+    # Remove the definition of 'red_hat_bpm_suite_6'
+    # This product_id is referenced in vulnerabilities.product_status.known_affected
+    # and product_tree.relationships
+    original_branches = doc['product_tree']['branches'][0]['branches']
+    doc['product_tree']['branches'][0]['branches'] = [
+        branch for branch in original_branches
+        if not (branch.get('product', {}).get('product_id') == 'red_hat_bpm_suite_6' or
+                (branch.get('category') == 'product_family' and branch.get('name') == 'Red Hat BPM Suite 6'))
+    ]
+
+    # Create a temporary file for the modified document
+    temp_csaf_file = csaf_file.parent / 'temp_cve-2016-3674_missing_product_id.json'
+    with open(temp_csaf_file, 'w') as f:
+        json.dump(doc, f, indent=2)
+
+    validator = Validator(schema_path)
+    result = validator.validate(temp_csaf_file)
+
+    assert not result.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MISSING_PRODUCT_ID_DEFINITION.name and
+        'red_hat_bpm_suite_6' in err.message
+        for err in result.errors
+    )
+
+    # Clean up the temporary file
+    temp_csaf_file.unlink()
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_product_id_definitions():

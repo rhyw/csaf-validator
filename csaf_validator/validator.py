@@ -3,28 +3,27 @@
 import json
 import jsonschema
 import os
+from csaf_validator.rules import check_mandatory_missing_product_id_definition, ValidationError, Rule
+
+
+class ValidationResult:
+    def __init__(self, is_valid, errors):
+        self.is_valid = is_valid
+        self.errors = errors
 
 
 class Validator:
     """Handles CSAF validation against a specific schema version."""
 
-    def __init__(self, schema_version="2.0"):
+    def __init__(self, schema_file_path):
         """
-        Initializes the validator with a specific schema version.
+        Initializes the validator with a specific schema file path.
 
         Args:
-            schema_version: The CSAF schema version (e.g., "2.0").
+            schema_file_path: Absolute path to the CSAF schema file.
         """
-        self.schema_version = schema_version
-        self.schema = self._load_schema()
-
-    def _load_schema(self):
-        """Loads the appropriate CSAF JSON schema."""
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "schemas", f"csaf_{self.schema_version}.json"
-        )
-        with open(schema_path, "r") as f:
-            return json.load(f)
+        with open(schema_file_path, "r") as f:
+            self.schema = json.load(f)
 
     def validate(self, csaf_file):
         """
@@ -34,13 +33,17 @@ class Validator:
             csaf_file: Path to the CSAF file.
 
         Returns:
-            True if valid, False otherwise.
+            ValidationResult object.
         """
         with open(csaf_file, "r") as f:
             instance = json.load(f)
+        errors = []
         try:
             jsonschema.validate(instance=instance, schema=self.schema)
-            return True
         except jsonschema.exceptions.ValidationError as err:
-            print(f"Validation error: {err}")
-            return False
+            errors.append(ValidationError("SCHEMA_VALIDATION_ERROR", str(err)))
+
+        # Run custom rules
+        errors.extend(check_mandatory_missing_product_id_definition(instance))
+
+        return ValidationResult(not bool(errors), errors)
