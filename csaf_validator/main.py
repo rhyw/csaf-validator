@@ -1,6 +1,8 @@
 """Main entry point for the CSAF validator CLI."""
 
 import argparse
+import os
+from csaf_validator.validator import Validator, ValidationError
 
 
 def main():
@@ -15,8 +17,26 @@ def main():
     args = parser.parse_args()
 
     print(f"Validating {args.file} with schema version {args.schema_version}...")
-    # TODO: Implement validation logic
-    print("Validation successful (placeholder).")
+
+    # Construct the schema file path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    schema_file_name = f"csaf_{args.schema_version}.json"
+    schema_file_path = os.path.join(current_dir, "schemas", schema_file_name)
+
+    if not os.path.exists(schema_file_path):
+        print(f"Error: Schema file not found for version {args.schema_version}: {schema_file_path}")
+        exit(1)
+
+    validator = Validator(schema_file_path)
+    result = validator.validate(args.file)
+
+    if result.is_valid:
+        print("Validation successful.")
+    else:
+        print("Validation failed with the following errors:")
+        for error in result.errors:
+            print(f"- [{error.rule}] {error.message}")
+        exit(1)
 
 
 if __name__ == "__main__":
