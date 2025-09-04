@@ -2,6 +2,7 @@
 
 import json
 import jsonschema
+import os
 
 
 class Validator:
@@ -19,9 +20,11 @@ class Validator:
 
     def _load_schema(self):
         """Loads the appropriate CSAF JSON schema."""
-        # TODO: Implement schema loading from a file
-        print(f"Loading schema for version {self.schema_version} (placeholder).")
-        return {}
+        schema_path = os.path.join(
+            os.path.dirname(__file__), "schemas", f"csaf_{self.schema_version}.json"
+        )
+        with open(schema_path, "r") as f:
+            return json.load(f)
 
     def validate(self, csaf_file):
         """
@@ -33,13 +36,11 @@ class Validator:
         Returns:
             True if valid, False otherwise.
         """
-        print(f"Validating {csaf_file} (placeholder).")
-        # with open(csaf_file, "r") as f:
-        #     instance = json.load(f)
-        # try:
-        #     jsonschema.validate(instance=instance, schema=self.schema)
-        #     return True
-        # except jsonschema.exceptions.ValidationError as err:
-        #     print(f"Validation error: {err}")
-        #     return False
-        return True
+        with open(csaf_file, "r") as f:
+            instance = json.load(f)
+        try:
+            jsonschema.validate(instance=instance, schema=self.schema)
+            return True
+        except jsonschema.exceptions.ValidationError as err:
+            print(f"Validation error: {err}")
+            return False

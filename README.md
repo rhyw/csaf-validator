@@ -35,3 +35,15 @@ pip install -e ".[dev]"
 ```bash
 pytest
 ```
+
+Alternatively, you can use the Makefile target:
+
+```bash
+make test
+```
+
+Each time there is update, you may want to install before testing:
+
+```bash
+make install
+```
