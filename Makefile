@@ -3,5 +3,14 @@
 install:
 	@pip install -e ".[dev]"
 
-test:
+test: install
 	pytest
+
+CSAF_SAMPLE_FILES := $(wildcard csaf_validator/samples/*.json)
+
+validate: install
+	@echo "Validating CSAF sample files..."
+	@for file in $(CSAF_SAMPLE_FILES); do \
+		echo "Running validator on $$file..."; \
+		source .venv/bin/activate && csaf-validator $$file || exit 1; \
+	done
