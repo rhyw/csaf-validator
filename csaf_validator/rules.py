@@ -19,7 +19,21 @@ class ValidationError:
 
 def get_all_product_ids(doc):
     """
-    Recursively finds all defined product_ids in the product_tree.
+    Recursively finds all defined product_ids within the `product_tree` section of a CSAF document.
+    This function is a crucial part of ensuring that all 'product_id's referenced elsewhere
+    in the document (e.g., in vulnerabilities, remediations, threats) are properly defined
+    in `full_product_name_t` elements.
+
+    It collects product IDs from:
+    - `product_tree.full_product_names[]`
+    - `product_tree.relationships[].full_product_name`
+    - `product_tree.branches[]...product` (recursively)
+
+    Args:
+        doc (dict): The CSAF document as a dictionary.
+
+    Returns:
+        set: A set of all unique product IDs defined in the product_tree.
     """
     product_ids = set()
     if 'product_tree' not in doc:
