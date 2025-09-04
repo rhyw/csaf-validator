@@ -99,6 +99,9 @@ def check_mandatory_missing_product_id_definition(doc):
         for threat in vuln.get('threats', []):
             for product_id in threat.get('product_ids', []):
                 referenced_ids.add(product_id)
+        for flag in vuln.get('flags', []):
+            for product_id in flag.get('product_ids', []):
+                referenced_ids.add(product_id)
 
     # Check for missing definitions
     missing_ids = referenced_ids - defined_ids
