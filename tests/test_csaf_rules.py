@@ -100,14 +100,178 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     # Clean up the temporary file
     temp_csaf_file.unlink()
 
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_multiple_product_id_definitions():
+
+def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     """
     6.1.2 Multiple Definition of Product ID
     For each product_id_t in full_product_name_t elements, it MUST be tested
     that the product_id was not already defined within the same document.
     """
-    pass
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com"
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0001",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release"
+                    }
+                ]
+            },
+            "category": "csaf_security_advisory"
+        },
+        "product_tree": {
+            "full_product_names": [
+                {
+                    "product_id": "CSAFPID-0001",
+                    "name": "Product A"
+                },
+                {
+                    "product_id": "CSAFPID-0002",
+                    "name": "Product B"
+                }
+            ],
+            "branches": [
+                {
+                    "category": "vendor",
+                    "name": "Vendor X",
+                    "branches": [
+                        {
+                            "category": "product_name",
+                            "name": "Product C",
+                            "product": {
+                                "product_id": "CSAFPID-0003",
+                                "name": "Product C v1.0"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "relationships": [
+                {
+                    "category": "installed_on",
+                    "product_reference": "CSAFPID-0001",
+                    "relates_to_product_reference": "CSAFPID-0002",
+                    "full_product_name": {
+                        "product_id": "CSAFPID-0004",
+                        "name": "Product A on Product B"
+                    }
+                }
+            ]
+        }
+    }
+
+    validator = Validator(schema_path)
+
+    # Test case 1: Duplicate in full_product_names
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["product_tree"]["full_product_names"].append(
+        {
+            "product_id": "CSAFPID-0001",
+            "name": "Product A Duplicate"
+        }
+    )
+    temp_file1 = data_path / "temp_multiple_product_id_full_product_names.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert not result1.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
+        "Product ID 'CSAFPID-0001' is defined multiple times in full_product_names." in err.message
+        for err in result1.errors
+    )
+    temp_file1.unlink()
+
+    # Test case 2: Duplicate in relationships
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["product_tree"]["relationships"].append(
+        {
+            "category": "installed_on",
+            "product_reference": "CSAFPID-0001",
+            "relates_to_product_reference": "CSAFPID-0002",
+            "full_product_name": {
+                "product_id": "CSAFPID-0004",
+                "name": "Product A on Product B Duplicate"
+            }
+        }
+    )
+    temp_file2 = data_path / "temp_multiple_product_id_relationships.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert not result2.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
+        "Product ID 'CSAFPID-0004' is defined multiple times in relationships." in err.message
+        for err in result2.errors
+    )
+    temp_file2.unlink()
+
+    # Test case 3: Duplicate in branches
+    doc3 = copy.deepcopy(base_csaf_doc)
+    doc3["product_tree"]["branches"][0]["branches"].append(
+        {
+            "category": "product_name",
+            "name": "Product C Duplicate",
+            "product": {
+                "product_id": "CSAFPID-0003",
+                "name": "Product C v1.0 Duplicate"
+            }
+        }
+    )
+    temp_file3 = data_path / "temp_multiple_product_id_branches.json"
+    with open(temp_file3, "w") as f:
+        json.dump(doc3, f, indent=2)
+    result3 = validator.validate(temp_file3)
+    assert not result3.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
+        "Product ID 'CSAFPID-0003' is defined multiple times in product_tree.branches." in err.message
+        for err in result3.errors
+    )
+    temp_file3.unlink()
+
+    # Test case 4: Duplicate across different sections (e.g., full_product_names and branches)
+    doc4 = copy.deepcopy(base_csaf_doc)
+    doc4["product_tree"]["full_product_names"].append(
+        {
+            "product_id": "CSAFPID-0003", # Duplicate of product_id in branches
+            "name": "Product C from Full Product Names"
+        }
+    )
+    temp_file4 = data_path / "temp_multiple_product_id_cross_sections.json"
+    with open(temp_file4, "w") as f:
+        json.dump(doc4, f, indent=2)
+    result4 = validator.validate(temp_file4)
+    assert not result4.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
+        "Product ID 'CSAFPID-0003' is defined multiple times in product_tree.branches." in err.message
+        for err in result4.errors
+    )
+    temp_file4.unlink()
+
+    # Test case 5: Valid document (no duplicates)
+    temp_file5 = data_path / "temp_multiple_product_id_valid.json"
+    with open(temp_file5, "w") as f:
+        json.dump(base_csaf_doc, f, indent=2)
+    result5 = validator.validate(temp_file5)
+    assert result5.is_valid
+    temp_file5.unlink()
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_circular_product_id_definition():
@@ -322,9 +486,9 @@ def test_mandatory_prohibited_document_category_name():
     """
     pass
 
-# ##################################################################
+##################################################################
 #  6.2 Optional Tests
-# ##################################################################
+##################################################################
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_unused_product_id_definition():
@@ -499,9 +663,9 @@ def test_optional_additional_properties():
     """
     pass
 
-# ##################################################################
+##################################################################
 #  6.3 Informative Tests
-# ##################################################################
+##################################################################
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_use_of_cvss_v2_as_only_scoring_system():
