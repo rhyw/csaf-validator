@@ -3,7 +3,7 @@
 import json
 import jsonschema
 import os
-from csaf_validator.rules import check_mandatory_missing_product_id_definition, ValidationError, Rule
+from csaf_validator.rules import check_mandatory_missing_product_id_definition, check_mandatory_multiple_product_id_definitions, ValidationError, Rule
 
 
 class ValidationResult:
@@ -13,7 +13,9 @@ class ValidationResult:
 
 
 class Validator:
-    """Handles CSAF validation against a specific schema version."""
+    """
+    Handles CSAF validation against a specific schema version.
+    """
 
     def __init__(self, schema_file_path):
         """
@@ -45,5 +47,6 @@ class Validator:
 
         # Run custom rules
         errors.extend(check_mandatory_missing_product_id_definition(instance))
+        errors.extend(check_mandatory_multiple_product_id_definitions(instance))
 
         return ValidationResult(not bool(errors), errors)

@@ -10,6 +10,10 @@ class Rule(Enum):
         "6.1.1 Missing Definition of Product ID",
         "For each element of type product_id_t that is not inside a full_product_name_t, it MUST be tested that the full_product_name_t element with the matching product_id exists."
     )
+    MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS = (
+        "6.1.2 Multiple Definition of Product ID",
+        "For each product_id_t in full_product_name_t elements, it MUST be tested that the product_id was not already defined within the same document."
+    )
 
 
 class ValidationError:
@@ -110,5 +114,60 @@ def check_mandatory_missing_product_id_definition(doc):
             Rule.MANDATORY_MISSING_PRODUCT_ID_DEFINITION.name,
             f"Referenced product_id '{missing_id}' is not defined in the product_tree."
         ))
+
+    return errors
+
+def check_mandatory_multiple_product_id_definitions(doc):
+    """
+    6.1.2 Multiple Definition of Product ID
+    For each product_id_t in full_product_name_t elements, it MUST be tested
+    that the product_id was not already defined within the same document.
+    """
+    defined_ids = set()
+    errors = []
+
+    if 'product_tree' not in doc:
+        return errors
+
+    product_tree = doc['product_tree']
+
+    # Check in full_product_names
+    for full_product_name in product_tree.get('full_product_names', []):
+        if 'product_id' in full_product_name:
+            product_id = full_product_name['product_id']
+            if product_id in defined_ids:
+                errors.append(ValidationError(
+                    Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name,
+                    f"Product ID '{product_id}' is defined multiple times in full_product_names."
+                ))
+            defined_ids.add(product_id)
+
+    # Check in relationships
+    for relationship in product_tree.get('relationships', []):
+        if 'full_product_name' in relationship and 'product_id' in relationship['full_product_name']:
+            product_id = relationship['full_product_name']['product_id']
+            if product_id in defined_ids:
+                errors.append(ValidationError(
+                    Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name,
+                    f"Product ID '{product_id}' is defined multiple times in relationships."
+                ))
+            defined_ids.add(product_id)
+
+    # Check in branches (recursively)
+    def find_duplicates_in_branches(branches):
+        for branch in branches:
+            if 'product' in branch and 'product_id' in branch['product']:
+                product_id = branch['product']['product_id']
+                if product_id in defined_ids:
+                    errors.append(ValidationError(
+                        Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name,
+                        f"Product ID '{product_id}' is defined multiple times in product_tree.branches."
+                    ))
+                defined_ids.add(product_id)
+            if 'branches' in branch:
+                find_duplicates_in_branches(branch['branches'])
+
+    if 'branches' in product_tree:
+        find_duplicates_in_branches(product_tree.get('branches', []))
 
     return errors
