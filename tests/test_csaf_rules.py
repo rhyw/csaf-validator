@@ -2,17 +2,45 @@
 Stub tests for CSAF 2.0 validation rules based on csaf-v2.0-os.md.
 """
 import pytest
-
-# ##################################################################
-#  6.1 Mandatory Tests
-# ##################################################################
-
 import json
 import copy
 from pathlib import Path
+import re
 
 from csaf_validator.validator import Validator
-from csaf_validator.rules import Rule
+from csaf_validator.rules import Rule, get_all_product_ids
+
+# Helper function to get all referenced product IDs
+def _get_all_referenced_product_ids(doc):
+    referenced_ids = set()
+    if doc.get('product_tree'):
+        for group in doc['product_tree'].get('product_groups', []):
+            for product_id in group.get('product_ids', []):
+                referenced_ids.add(product_id)
+        for rel in doc['product_tree'].get('relationships', []):
+            if 'product_reference' in rel:
+                referenced_ids.add(rel['product_reference'])
+            if 'relates_to_product_reference' in rel:
+                referenced_ids.add(rel['relates_to_product_reference'])
+
+    for vuln in doc.get('vulnerabilities', []):
+        if 'product_status' in vuln:
+            for status_list in vuln['product_status'].values():
+                for product_id in status_list:
+                    referenced_ids.add(product_id)
+        for remediation in vuln.get('remediations', []):
+            for product_id in remediation.get('product_ids', []):
+                referenced_ids.add(product_id)
+        for score in vuln.get('scores', []):
+            for product_id in score.get('products', []):
+                referenced_ids.add(product_id)
+        for threat in vuln.get('threats', []):
+            for product_id in threat.get('product_ids', []):
+                referenced_ids.add(product_id)
+        for flag in vuln.get('flags', []):
+            for product_id in flag.get('product_ids', []):
+                referenced_ids.add(product_id)
+    return referenced_ids
 
 def test_mandatory_missing_product_id_definition(data_path, schema_path):
     """
@@ -23,7 +51,14 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     """
     csaf_file = data_path / 'cve-2016-3674.json'
     with open(csaf_file, 'r') as f:
-        doc = json.load(f)
+        original_doc = json.load(f)
+
+    # Get defined and referenced IDs before modification
+    defined_ids_before = get_all_product_ids(original_doc)
+    referenced_ids_before = _get_all_referenced_product_ids(original_doc)
+
+    # Create a deep copy to modify
+    doc = copy.deepcopy(original_doc)
 
     # Remove the definition of 'red_hat_bpm_suite_6'
     # This product_id is referenced in vulnerabilities.product_status.known_affected
@@ -35,6 +70,13 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
                 (branch.get('category') == 'product_family' and branch.get('name') == 'Red Hat BPM Suite 6'))
     ]
 
+    # Get defined and referenced IDs after modification
+    defined_ids_after = get_all_product_ids(doc)
+    referenced_ids_after = _get_all_referenced_product_ids(doc)
+
+    # Expected missing IDs are those referenced but not defined in the modified document
+    expected_missing_ids = referenced_ids_after - defined_ids_after
+
     # Create a temporary file for the modified document
     temp_csaf_file = csaf_file.parent / 'temp_cve-2016-3674_missing_product_id.json'
     with open(temp_csaf_file, 'w') as f:
@@ -43,12 +85,17 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     validator = Validator(schema_path)
     result = validator.validate(temp_csaf_file)
 
-    assert not result.is_valid
-    assert any(
-        err.rule == Rule.MANDATORY_MISSING_PRODUCT_ID_DEFINITION.name and
-        'red_hat_bpm_suite_6' in err.message
-        for err in result.errors
-    )
+    assert not result.is_valid, "Validation was expected to fail but succeeded."
+
+    actual_missing_ids = set()
+    for err in result.errors:
+        if err.rule == Rule.MANDATORY_MISSING_PRODUCT_ID_DEFINITION.name:
+            match = re.search(r"Referenced product_id '([^']+)' is not defined in the product_tree.", err.message)
+            if match:
+                actual_missing_ids.add(match.group(1))
+
+    assert actual_missing_ids == expected_missing_ids, \
+        f"Mismatch in missing product IDs.\nExpected: {sorted(list(expected_missing_ids))}\nActual:   {sorted(list(actual_missing_ids))}"
 
     # Clean up the temporary file
     temp_csaf_file.unlink()
