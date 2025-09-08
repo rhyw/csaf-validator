@@ -26,3 +26,5 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
+GEMINI.md
+csaf_validator/samples/*.json
