@@ -10,19 +10,29 @@ pip install .
 
 ## Usage
 
+Validate a CSAF file:
+
 ```bash
 csaf-validator /path/to/your/csaf.json
 ```
 
-You can also specify a schema version:
+Specify a schema version (e.g., 2.0):
 
 ```bash
 csaf-validator --schema-version 2.0 /path/to/your/csaf.json
 ```
 
+### Validating Sample Files
+
+To validate sample CSAF JSON files, place them in the `csaf_validator/samples/` directory and run:
+
+```bash
+make validate
+```
+
 ## Development
 
-Set up a virtual environment and install the development dependencies:
+Set up your development environment:
 
 ```bash
 python3 -m venv .venv
@@ -36,14 +46,8 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Alternatively, you can use the Makefile target:
+Alternatively, use the Makefile:
 
 ```bash
 make test
-```
-
-Each time there is update, you may want to install before testing:
-
-```bash
-make install
 ```
