@@ -2,7 +2,8 @@
 
 import argparse
 import os
-from csaf_validator.validator import Validator, ValidationError
+
+from csaf_validator.validator import Validator
 
 
 def main():
@@ -24,7 +25,10 @@ def main():
     schema_file_path = os.path.join(current_dir, "schemas", schema_file_name)
 
     if not os.path.exists(schema_file_path):
-        print(f"Error: Schema file not found for version {args.schema_version}: {schema_file_path}")
+        print(
+            f"Error: Schema file not found for version "
+            f"{args.schema_version}: {schema_file_path}"
+        )
         exit(1)
 
     validator = Validator(schema_file_path)

@@ -1,15 +1,19 @@
 """Tests for the CSAF validator."""
 
-import pytest
 import os
+
 from csaf_validator.validator import Validator
 
-csaf_schema_path = os.path.join(os.path.dirname(__file__), "..", "csaf_validator", "schemas", "csaf_2.0.json")
+csaf_schema_path = os.path.join(
+    os.path.dirname(__file__), "..", "csaf_validator", "schemas", "csaf_2.0.json"
+)
 
 
 def test_validator_initialization():
     """Tests that the Validator class initializes correctly."""
-    csaf_schema_path = os.path.join(os.path.dirname(__file__), "..", "csaf_validator", "schemas", "csaf_2.0.json")
+    csaf_schema_path = os.path.join(
+        os.path.dirname(__file__), "..", "csaf_validator", "schemas", "csaf_2.0.json"
+    )
     validator = Validator(schema_file_path=csaf_schema_path)
     assert isinstance(validator.schema, dict)
     assert validator.schema  # Check that the schema is not empty
@@ -19,7 +23,11 @@ def test_valid_csaf_file():
     """Tests validation with a valid CSAF file."""
     validator = Validator(schema_file_path=csaf_schema_path)
     sample_file = os.path.join(
-        os.path.dirname(__file__), "..", "csaf_validator", "samples", "cve-2016-3674.json"
+        os.path.dirname(__file__),
+        "..",
+        "csaf_validator",
+        "samples",
+        "cve-2016-3674.json",
     )
     assert validator.validate(sample_file).is_valid is True
 

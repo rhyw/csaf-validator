@@ -1,61 +1,65 @@
 """
 Stub tests for CSAF 2.0 validation rules based on csaf-v2.0-os.md.
 """
-import pytest
-import json
+
 import copy
-from pathlib import Path
+import json
 import re
 
-from csaf_validator.validator import Validator
+import pytest
+
 from csaf_validator.rules import Rule, get_all_product_ids
+from csaf_validator.validator import Validator
+
 
 # Helper function to get all referenced product IDs
 def _get_all_referenced_product_ids(doc):
     referenced_ids = set()
-    if doc.get('product_tree'):
-        for group in doc['product_tree'].get('product_groups', []):
-            for product_id in group.get('product_ids', []):
+    if doc.get("product_tree"):
+        for group in doc["product_tree"].get("product_groups", []):
+            for product_id in group.get("product_ids", []):
                 referenced_ids.add(product_id)
-        for rel in doc['product_tree'].get('relationships', []):
-            if 'product_reference' in rel:
-                referenced_ids.add(rel['product_reference'])
-            if 'relates_to_product_reference' in rel:
-                referenced_ids.add(rel['relates_to_product_reference'])
+        for rel in doc["product_tree"].get("relationships", []):
+            if "product_reference" in rel:
+                referenced_ids.add(rel["product_reference"])
+            if "relates_to_product_reference" in rel:
+                referenced_ids.add(rel["relates_to_product_reference"])
 
-    for vuln in doc.get('vulnerabilities', []):
-        if 'product_status' in vuln:
-            for status_list in vuln['product_status'].values():
+    for vuln in doc.get("vulnerabilities", []):
+        if "product_status" in vuln:
+            for status_list in vuln["product_status"].values():
                 for product_id in status_list:
                     referenced_ids.add(product_id)
-        for remediation in vuln.get('remediations', []):
-            for product_id in remediation.get('product_ids', []):
+        for remediation in vuln.get("remediations", []):
+            for product_id in remediation.get("product_ids", []):
                 referenced_ids.add(product_id)
-        for score in vuln.get('scores', []):
-            for product_id in score.get('products', []):
+        for score in vuln.get("scores", []):
+            for product_id in score.get("products", []):
                 referenced_ids.add(product_id)
-        for threat in vuln.get('threats', []):
-            for product_id in threat.get('product_ids', []):
+        for threat in vuln.get("threats", []):
+            for product_id in threat.get("product_ids", []):
                 referenced_ids.add(product_id)
-        for flag in vuln.get('flags', []):
-            for product_id in flag.get('product_ids', []):
+        for flag in vuln.get("flags", []):
+            for product_id in flag.get("product_ids", []):
                 referenced_ids.add(product_id)
     return referenced_ids
+
 
 def test_mandatory_missing_product_id_definition(data_path, schema_path):
     """
     6.1.1 Missing Definition of Product ID
-    For each element of type product_id_t that is not inside a full_product_name_t,
+    For each element of type product_id_t that is not inside a
+    full_product_name_t,
     it MUST be tested that the full_product_name_t element with the matching
     product_id exists.
     """
-    csaf_file = data_path / 'cve-2016-3674.json'
-    with open(csaf_file, 'r') as f:
+    csaf_file = data_path / "cve-2016-3674.json"
+    with open(csaf_file, "r") as f:
         original_doc = json.load(f)
 
     # Get defined and referenced IDs before modification
-    defined_ids_before = get_all_product_ids(original_doc)
-    referenced_ids_before = _get_all_referenced_product_ids(original_doc)
+    # defined_ids_before = get_all_product_ids(original_doc)
+    # referenced_ids_before = _get_all_referenced_product_ids(original_doc)
 
     # Create a deep copy to modify
     doc = copy.deepcopy(original_doc)
@@ -63,11 +67,17 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     # Remove the definition of 'red_hat_bpm_suite_6'
     # This product_id is referenced in vulnerabilities.product_status.known_affected
     # and product_tree.relationships
-    original_branches = doc['product_tree']['branches'][0]['branches']
-    doc['product_tree']['branches'][0]['branches'] = [
-        branch for branch in original_branches
-        if not (branch.get('product', {}).get('product_id') == 'red_hat_bpm_suite_6' or
-                (branch.get('category') == 'product_family' and branch.get('name') == 'Red Hat BPM Suite 6'))
+    original_branches = doc["product_tree"]["branches"][0]["branches"]
+    doc["product_tree"]["branches"][0]["branches"] = [
+        branch
+        for branch in original_branches
+        if not (
+            branch.get("product", {}).get("product_id") == "red_hat_bpm_suite_6"
+            or (
+                branch.get("category") == "product_family"
+                and branch.get("name") == "Red Hat BPM Suite 6"
+            )
+        )
     ]
 
     # Get defined and referenced IDs after modification
@@ -78,8 +88,8 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     expected_missing_ids = referenced_ids_after - defined_ids_after
 
     # Create a temporary file for the modified document
-    temp_csaf_file = csaf_file.parent / 'temp_cve-2016-3674_missing_product_id.json'
-    with open(temp_csaf_file, 'w') as f:
+    temp_csaf_file = csaf_file.parent / "temp_cve-2016-3674_missing_product_id.json"
+    with open(temp_csaf_file, "w") as f:
         json.dump(doc, f, indent=2)
 
     validator = Validator(schema_path)
@@ -90,12 +100,18 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     actual_missing_ids = set()
     for err in result.errors:
         if err.rule == Rule.MANDATORY_MISSING_PRODUCT_ID_DEFINITION.name:
-            match = re.search(r"Referenced product_id '([^']+)' is not defined in the product_tree.", err.message)
+            match = re.search(
+                r"Referenced product_id '([^']+)' is not defined in the product_tree.",
+                err.message,
+            )
             if match:
                 actual_missing_ids.add(match.group(1))
 
-    assert actual_missing_ids == expected_missing_ids, \
-        f"Mismatch in missing product IDs.\nExpected: {sorted(list(expected_missing_ids))}\nActual:   {sorted(list(actual_missing_ids))}"
+    assert actual_missing_ids == expected_missing_ids, (
+        f"Mismatch in missing product IDs.\nExpected: "
+        f"{sorted(list(expected_missing_ids))}\nActual:   "
+        f"{sorted(list(actual_missing_ids))}"
+    )
 
     # Clean up the temporary file
     temp_csaf_file.unlink()
@@ -113,7 +129,7 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
             "publisher": {
                 "category": "vendor",
                 "name": "Example Company",
-                "namespace": "https://example.com"
+                "namespace": "https://example.com",
             },
             "title": "Test Advisory",
             "tracking": {
@@ -126,22 +142,16 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
                     {
                         "date": "2023-01-01T00:00:00Z",
                         "number": "1.0.0",
-                        "summary": "Initial release"
+                        "summary": "Initial release",
                     }
-                ]
+                ],
             },
-            "category": "csaf_security_advisory"
+            "category": "csaf_security_advisory",
         },
         "product_tree": {
             "full_product_names": [
-                {
-                    "product_id": "CSAFPID-0001",
-                    "name": "Product A"
-                },
-                {
-                    "product_id": "CSAFPID-0002",
-                    "name": "Product B"
-                }
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
             ],
             "branches": [
                 {
@@ -153,10 +163,10 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
                             "name": "Product C",
                             "product": {
                                 "product_id": "CSAFPID-0003",
-                                "name": "Product C v1.0"
-                            }
+                                "name": "Product C v1.0",
+                            },
                         }
-                    ]
+                    ],
                 }
             ],
             "relationships": [
@@ -166,11 +176,11 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
                     "relates_to_product_reference": "CSAFPID-0002",
                     "full_product_name": {
                         "product_id": "CSAFPID-0004",
-                        "name": "Product A on Product B"
-                    }
+                        "name": "Product A on Product B",
+                    },
                 }
-            ]
-        }
+            ],
+        },
     }
 
     validator = Validator(schema_path)
@@ -178,10 +188,7 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     # Test case 1: Duplicate in full_product_names
     doc1 = copy.deepcopy(base_csaf_doc)
     doc1["product_tree"]["full_product_names"].append(
-        {
-            "product_id": "CSAFPID-0001",
-            "name": "Product A Duplicate"
-        }
+        {"product_id": "CSAFPID-0001", "name": "Product A Duplicate"}
     )
     temp_file1 = data_path / "temp_multiple_product_id_full_product_names.json"
     with open(temp_file1, "w") as f:
@@ -189,8 +196,9 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     result1 = validator.validate(temp_file1)
     assert not result1.is_valid
     assert any(
-        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
-        "Product ID 'CSAFPID-0001' is defined multiple times in full_product_names." in err.message
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name
+        and "Product ID 'CSAFPID-0001' is defined multiple times in full_product_names."
+        in err.message
         for err in result1.errors
     )
     temp_file1.unlink()
@@ -204,8 +212,8 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
             "relates_to_product_reference": "CSAFPID-0002",
             "full_product_name": {
                 "product_id": "CSAFPID-0004",
-                "name": "Product A on Product B Duplicate"
-            }
+                "name": "Product A on Product B Duplicate",
+            },
         }
     )
     temp_file2 = data_path / "temp_multiple_product_id_relationships.json"
@@ -214,8 +222,9 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     result2 = validator.validate(temp_file2)
     assert not result2.is_valid
     assert any(
-        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
-        "Product ID 'CSAFPID-0004' is defined multiple times in relationships." in err.message
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name
+        and "Product ID 'CSAFPID-0004' is defined multiple times in relationships."
+        in err.message
         for err in result2.errors
     )
     temp_file2.unlink()
@@ -228,8 +237,8 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
             "name": "Product C Duplicate",
             "product": {
                 "product_id": "CSAFPID-0003",
-                "name": "Product C v1.0 Duplicate"
-            }
+                "name": "Product C v1.0 Duplicate",
+            },
         }
     )
     temp_file3 = data_path / "temp_multiple_product_id_branches.json"
@@ -238,8 +247,9 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     result3 = validator.validate(temp_file3)
     assert not result3.is_valid
     assert any(
-        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
-        "Product ID 'CSAFPID-0003' is defined multiple times in product_tree.branches." in err.message
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name
+        and "Product ID 'CSAFPID-0003' is defined multiple times in product_tree.branches."
+        in err.message
         for err in result3.errors
     )
     temp_file3.unlink()
@@ -248,8 +258,8 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     doc4 = copy.deepcopy(base_csaf_doc)
     doc4["product_tree"]["full_product_names"].append(
         {
-            "product_id": "CSAFPID-0003", # Duplicate of product_id in branches
-            "name": "Product C from Full Product Names"
+            "product_id": "CSAFPID-0003",  # Duplicate of product_id in branches
+            "name": "Product C from Full Product Names",
         }
     )
     temp_file4 = data_path / "temp_multiple_product_id_cross_sections.json"
@@ -258,8 +268,9 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     result4 = validator.validate(temp_file4)
     assert not result4.is_valid
     assert any(
-        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name and
-        "Product ID 'CSAFPID-0003' is defined multiple times in product_tree.branches." in err.message
+        err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name
+        and "Product ID 'CSAFPID-0003' is defined multiple times in product_tree.branches."
+        in err.message
         for err in result4.errors
     )
     temp_file4.unlink()
@@ -282,6 +293,7 @@ def test_mandatory_circular_product_id_definition():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_missing_product_group_id_definition():
     """
@@ -290,6 +302,7 @@ def test_mandatory_missing_product_group_id_definition():
     it MUST be tested that the product_group element with the matching group_id exists.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_product_group_id_definitions():
@@ -300,6 +313,7 @@ def test_mandatory_multiple_product_group_id_definitions():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_contradicting_product_status():
     """
@@ -308,6 +322,7 @@ def test_mandatory_contradicting_product_status():
     is not a member of contradicting product status groups.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_scores_with_same_version_per_product():
@@ -318,6 +333,7 @@ def test_mandatory_multiple_scores_with_same_version_per_product():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_invalid_cvss():
     """
@@ -326,6 +342,7 @@ def test_mandatory_invalid_cvss():
     referenced schema.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_invalid_cvss_computation():
@@ -336,6 +353,7 @@ def test_mandatory_invalid_cvss_computation():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_inconsistent_cvss():
     """
@@ -345,6 +363,7 @@ def test_mandatory_inconsistent_cvss():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_cwe():
     """
@@ -352,6 +371,7 @@ def test_mandatory_cwe():
     It MUST be tested that given CWE exists and is valid.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_language():
@@ -362,6 +382,7 @@ def test_mandatory_language():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_purl():
     """
@@ -369,6 +390,7 @@ def test_mandatory_purl():
     It MUST be tested that given PURL is valid.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_sorted_revision_history():
@@ -379,6 +401,7 @@ def test_mandatory_sorted_revision_history():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_translator():
     """
@@ -387,6 +410,7 @@ def test_mandatory_translator():
     `translator` is used for /document/publisher/category.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_latest_document_version():
@@ -397,6 +421,7 @@ def test_mandatory_latest_document_version():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_document_status_draft():
     """
@@ -405,6 +430,7 @@ def test_mandatory_document_status_draft():
     is `0` or `0.y.z` or contains the pre-release part.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_released_revision_history():
@@ -415,6 +441,7 @@ def test_mandatory_released_revision_history():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_revision_history_entries_for_prerelease_versions():
     """
@@ -423,6 +450,7 @@ def test_mandatory_revision_history_entries_for_prerelease_versions():
     includes pre-release information.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_non_draft_document_version():
@@ -433,6 +461,7 @@ def test_mandatory_non_draft_document_version():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_missing_item_in_revision_history():
     """
@@ -441,6 +470,7 @@ def test_mandatory_missing_item_in_revision_history():
     number when the items are sorted ascending by `date`.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_definition_in_revision_history():
@@ -451,6 +481,7 @@ def test_mandatory_multiple_definition_in_revision_history():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_cve():
     """
@@ -458,6 +489,7 @@ def test_mandatory_multiple_use_of_same_cve():
     It MUST be tested that a CVE is not used in multiple vulnerability items.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_definition_in_involvements():
@@ -468,6 +500,7 @@ def test_mandatory_multiple_definition_in_involvements():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """
@@ -476,6 +509,7 @@ def test_mandatory_multiple_use_of_same_hash_algorithm():
     in one item of hashes.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_prohibited_document_category_name():
@@ -486,9 +520,11 @@ def test_mandatory_prohibited_document_category_name():
     """
     pass
 
+
 ##################################################################
 #  6.2 Optional Tests
 ##################################################################
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_unused_product_id_definition():
@@ -499,6 +535,7 @@ def test_optional_unused_product_id_definition():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_remediation():
     """
@@ -507,6 +544,7 @@ def test_optional_missing_remediation():
     investigation, it MUST be tested that a remediation exists.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_score():
@@ -517,6 +555,7 @@ def test_optional_missing_score():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_build_metadata_in_revision_history():
     """
@@ -525,6 +564,7 @@ def test_optional_build_metadata_in_revision_history():
     include build metadata.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_older_initial_release_date_than_revision_history():
@@ -535,6 +575,7 @@ def test_optional_older_initial_release_date_than_revision_history():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_older_current_release_date_than_revision_history():
     """
@@ -543,6 +584,7 @@ def test_optional_older_current_release_date_than_revision_history():
     of the newest item in Revision History.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_date_in_involvements():
@@ -553,6 +595,7 @@ def test_optional_missing_date_in_involvements():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_use_of_md5_as_only_hash_algorithm():
     """
@@ -560,6 +603,7 @@ def test_optional_use_of_md5_as_only_hash_algorithm():
     It MUST be tested that the hash algorithm `md5` is not the only one present.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_use_of_sha1_as_only_hash_algorithm():
@@ -569,6 +613,7 @@ def test_optional_use_of_sha1_as_only_hash_algorithm():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_tlp_label():
     """
@@ -576,6 +621,7 @@ def test_optional_missing_tlp_label():
     It MUST be tested that /document/distribution/tlp/label is present and valid.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_canonical_url():
@@ -585,6 +631,7 @@ def test_optional_missing_canonical_url():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_document_language():
     """
@@ -593,6 +640,7 @@ def test_optional_missing_document_language():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_sorting():
     """
@@ -600,6 +648,7 @@ def test_optional_sorting():
     It MUST be tested that all keys in a CSAF document are sorted alphabetically.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_use_of_private_language():
@@ -610,6 +659,7 @@ def test_optional_use_of_private_language():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_use_of_default_language():
     """
@@ -618,6 +668,7 @@ def test_optional_use_of_default_language():
     is not `i-default`.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_missing_product_identification_helper():
@@ -628,6 +679,7 @@ def test_optional_missing_product_identification_helper():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_cve_in_field_ids():
     """
@@ -635,6 +687,7 @@ def test_optional_cve_in_field_ids():
     For each item in /vulnerabilities[]/ids, it MUST be tested that it is not a CVE ID.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_product_version_range_without_vers():
@@ -645,6 +698,7 @@ def test_optional_product_version_range_without_vers():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_cvss_for_fixed_products():
     """
@@ -653,6 +707,7 @@ def test_optional_cvss_for_fixed_products():
     applying to this product has an environmental score of `0`.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_optional_additional_properties():
@@ -663,9 +718,11 @@ def test_optional_additional_properties():
     """
     pass
 
+
 ##################################################################
 #  6.3 Informative Tests
 ##################################################################
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_use_of_cvss_v2_as_only_scoring_system():
@@ -676,6 +733,7 @@ def test_informative_use_of_cvss_v2_as_only_scoring_system():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_use_of_cvss_v3_0():
     """
@@ -685,6 +743,7 @@ def test_informative_use_of_cvss_v3_0():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_missing_cve():
     """
@@ -692,6 +751,7 @@ def test_informative_missing_cve():
     It MUST be tested that the CVE number is given.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_missing_cwe():
@@ -701,6 +761,7 @@ def test_informative_missing_cwe():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_use_of_short_hash():
     """
@@ -708,6 +769,7 @@ def test_informative_use_of_short_hash():
     It MUST be tested that the length of the hash value is not shorter than 64 characters.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_use_of_non_self_referencing_urls_failing_to_resolve():
@@ -717,6 +779,7 @@ def test_informative_use_of_non_self_referencing_urls_failing_to_resolve():
     resolves with a HTTP status code from the 2xx or 3xx class.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_use_of_self_referencing_urls_failing_to_resolve():
@@ -728,6 +791,7 @@ def test_informative_use_of_self_referencing_urls_failing_to_resolve():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_spell_check():
     """
@@ -736,6 +800,7 @@ def test_informative_spell_check():
     the given language does not find any mistakes.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_branch_categories():
@@ -747,6 +812,7 @@ def test_informative_branch_categories():
     """
     pass
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_usage_of_product_version_range():
     """
@@ -755,6 +821,7 @@ def test_informative_usage_of_product_version_range():
     is not `product_version_range`.
     """
     pass
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_informative_usage_of_v_as_version_indicator():

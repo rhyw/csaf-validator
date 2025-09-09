@@ -1,9 +1,14 @@
 """Core CSAF validation logic."""
 
 import json
+
 import jsonschema
-import os
-from csaf_validator.rules import check_mandatory_missing_product_id_definition, check_mandatory_multiple_product_id_definitions, ValidationError, Rule
+
+from csaf_validator.rules import (
+    ValidationError,
+    check_mandatory_missing_product_id_definition,
+    check_mandatory_multiple_product_id_definitions,
+)
 
 
 class ValidationResult:
