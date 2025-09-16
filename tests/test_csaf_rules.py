@@ -72,7 +72,7 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
         branch
         for branch in original_branches
         if not (
-            branch.get("product", {}).get("product_id") == "red_hat_bpm_suite_6"
+            branch.get("product", {{}}).get("product_id") == "red_hat_bpm_suite_6"
             or (
                 branch.get("category") == "product_family"
                 and branch.get("name") == "Red Hat BPM Suite 6"
@@ -284,14 +284,139 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     temp_file5.unlink()
 
 
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_circular_product_id_definition():
+def test_mandatory_circular_product_id_definition(data_path, schema_path):
     """
     6.1.3 Circular Definition of Product ID
     For each new defined product_id_t in items of relationships, it MUST be
     tested that the product_id does not end up in a circle.
     """
-    pass
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0002",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
+            ],
+            "relationships": [],
+        },
+    }
+
+    validator = Validator(schema_path)
+
+    # Test case 1: Direct circular dependency
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["product_tree"]["relationships"].append(
+        {
+            "category": "installed_on",
+            "full_product_name": {
+                "name": "Product C",
+                "product_id": "CSAFPID-0003",
+            },
+            "product_reference": "CSAFPID-0001",
+            "relates_to_product_reference": "CSAFPID-0003",  # Refers to itself
+        }
+    )
+    temp_file1 = data_path / "temp_circular_direct.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert not result1.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_CIRCULAR_DEFINITION_OF_PRODUCT_ID.name
+        and "Circular dependency detected for product_id 'CSAFPID-0003'" in err.message
+        for err in result1.errors
+    )
+    temp_file1.unlink()
+
+    # Test case 2: Indirect circular dependency (A -> B -> A)
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["product_tree"]["relationships"].extend(
+        [
+            {
+                "category": "installed_on",
+                "full_product_name": {
+                    "name": "Product C",
+                    "product_id": "CSAFPID-0003",
+                },
+                "product_reference": "CSAFPID-0004",
+                "relates_to_product_reference": "CSAFPID-0001",
+            },
+            {
+                "category": "installed_on",
+                "full_product_name": {
+                    "name": "Product D",
+                    "product_id": "CSAFPID-0004",
+                },
+                "product_reference": "CSAFPID-0003",
+                "relates_to_product_reference": "CSAFPID-0002",
+            },
+        ]
+    )
+    temp_file2 = data_path / "temp_circular_indirect.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert not result2.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_CIRCULAR_DEFINITION_OF_PRODUCT_ID.name
+        and "Circular dependency detected for product_id 'CSAFPID-0004'" in err.message
+        for err in result2.errors
+    )
+    temp_file2.unlink()
+
+    # Test case 3: No circular dependency
+    doc3 = copy.deepcopy(base_csaf_doc)
+    doc3["product_tree"]["relationships"].extend(
+        [
+            {
+                "category": "installed_on",
+                "full_product_name": {
+                    "name": "Product C",
+                    "product_id": "CSAFPID-0003",
+                },
+                "product_reference": "CSAFPID-0001",
+                "relates_to_product_reference": "CSAFPID-0002",
+            },
+            {
+                "category": "installed_on",
+                "full_product_name": {
+                    "name": "Product D",
+                    "product_id": "CSAFPID-0004",
+                },
+                "product_reference": "CSAFPID-0003",
+                "relates_to_product_reference": "CSAFPID-0001",
+            },
+        ]
+    )
+    temp_file3 = data_path / "temp_no_circular.json"
+    with open(temp_file3, "w") as f:
+        json.dump(doc3, f, indent=2)
+    result3 = validator.validate(temp_file3)
+    assert result3.is_valid
+    temp_file3.unlink()
 
 
 @pytest.mark.skip(reason="Not implemented yet")
