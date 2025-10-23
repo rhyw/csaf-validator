@@ -21,6 +21,7 @@ dependencies = [
     "pytest",
     "cvss",
     "cwe2",
+    "langcodes",
 ]
 
 [project.urls]
