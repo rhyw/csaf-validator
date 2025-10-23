@@ -39,6 +39,12 @@ class Rule(Enum):
         "For each item in /vulnerabilities it MUST be tested that the same "
         "Product ID is not member of contradicting product status groups.",
     )
+    MANDATORY_MULTIPLE_SCORES_WITH_SAME_VERSION_PER_PRODUCT = (
+        "6.1.7 Multiple Scores with same Version per Product",
+        "For each item in /vulnerabilities it MUST be tested that the same "
+        "Product ID is not member of more than one CVSS-Vectors with the same version.",
+    )
+
 
 
 class ValidationError:
@@ -388,6 +394,58 @@ def check_mandatory_multiple_definition_of_product_group_id(doc):
                     )
                 )
             defined_group_ids.add(group_id)
+    return errors
+
+
+def check_mandatory_multiple_scores_with_same_version_per_product(doc):
+    """
+    6.1.7 Multiple Scores with same Version per Product
+    For each item in /vulnerabilities it MUST be tested that the same Product ID
+    is not member of more than one CVSS-Vectors with the same version.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "scores" not in vuln:
+            continue
+
+        product_scores = {}  # Key: product_id, Value: set of cvss versions
+
+        for score in vuln.get("scores", []):
+            products = score.get("products", [])
+            cvss_version = None
+            if "cvss_v3" in score:
+                cvss_version = score["cvss_v3"].get("version")
+            elif "cvss_v2" in score:
+                cvss_version = score["cvss_v2"].get("version")
+
+            if cvss_version:
+                for product_id in products:
+                    if product_id not in product_scores:
+                        product_scores[product_id] = set()
+
+                    if cvss_version in product_scores[product_id]:
+                        message = (
+                            f"Product ID '{product_id}' has multiple scores for CVSS version {cvss_version}"
+                        )
+                        # To prevent duplicate errors for the same issue
+                        if not any(
+                            err.message == message
+                            and err.rule
+                            == Rule.MANDATORY_MULTIPLE_SCORES_WITH_SAME_VERSION_PER_PRODUCT.name
+                            for err in errors
+                        ):
+                            errors.append(
+                                ValidationError(
+                                    Rule.MANDATORY_MULTIPLE_SCORES_WITH_SAME_VERSION_PER_PRODUCT.name,
+                                    message,
+                                )
+                            )
+                    else:
+                        product_scores[product_id].add(cvss_version)
+
     return errors
 
 
