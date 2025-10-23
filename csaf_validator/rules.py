@@ -57,6 +57,10 @@ class Rule(Enum):
         "6.1.11 CWE",
         "It MUST be tested that given CWE exists and is valid.",
     )
+    MANDATORY_LANGUAGE = (
+        "6.1.12 Language",
+        "For each element of type /$defs/language_t it MUST be tested that the language code is valid and exists.",
+    )
 
 
 class ValidationError:
@@ -820,5 +824,34 @@ def check_mandatory_cwe(doc):
                             f"Invalid CWE ID format '{cwe_id_str}' in vulnerability {vuln_index}.",
                         )
                     )
+
+    return errors
+
+
+def check_mandatory_language(doc):
+    """
+    6.1.12 Language
+    For each element of type /$defs/language_t it MUST be tested that the
+    language code is valid and exists.
+    """
+    errors = []
+    if "document" not in doc:
+        return errors
+
+    import langcodes
+
+    document = doc["document"]
+    lang_fields = ["lang", "source_lang"]
+
+    for field in lang_fields:
+        if field in document:
+            lang_tag = document[field]
+            if not langcodes.tag_is_valid(lang_tag):
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_LANGUAGE.name,
+                        f"Language tag '{lang_tag}' in /document/{field} is not a valid language code.",
+                    )
+                )
 
     return errors

@@ -1493,6 +1493,114 @@ def test_mandatory_invalid_cvss_computation(
 
             pass
 
+        @pytest.mark.parametrize(
+            "lang, source_lang, is_valid, error_message_part",
+            [
+                # Valid: Correct language tags
+                ("en-US", "de", True, None),
+                # Valid: Only lang is present
+                ("fr-CA", None, True, None),
+                # Valid: Only source_lang is present
+                (None, "ja", True, None),
+                # Invalid: Invalid lang tag
+                (
+                    "EZ",
+                    "de",
+                    False,
+                    "Language tag 'EZ' in /document/lang is not a valid language code.",
+                ),
+                # Invalid: Invalid source_lang tag
+                (
+                    "en-US",
+                    "invalid-lang",
+                    False,
+                    "Language tag 'invalid-lang' in /document/source_lang is not a valid language code.",
+                ),
+                # Invalid: Both lang and source_lang are invalid
+                (
+                    "EZ",
+                    "invalid-lang",
+                    False,
+                    "Language tag 'EZ' in /document/lang is not a valid language code.",
+                ),
+            ],
+        )
+        def test_mandatory_language(
+            lang, source_lang, is_valid, error_message_part, data_path, csaf_schema_path
+        ):
+            """
+
+            6.1.12 Language
+
+            For each element of type /$defs/language_t it MUST be tested that the
+
+            language code is valid and exists.
+
+            """
+
+            base_csaf_doc = {
+                "document": {
+                    "csaf_version": "2.0",
+                    "publisher": {
+                        "category": "vendor",
+                        "name": "Example Company",
+                        "namespace": "https://example.com",
+                    },
+                    "title": "Test Advisory for Language",
+                    "tracking": {
+                        "id": "TEST-2023-0011",
+                        "status": "final",
+                        "version": "1.0.0",
+                        "initial_release_date": "2023-01-01T00:00:00Z",
+                        "current_release_date": "2023-01-01T00:00:00Z",
+                        "revision_history": [
+                            {
+                                "date": "2023-01-01T00:00:00Z",
+                                "number": "1.0.0",
+                                "summary": "Initial release",
+                            }
+                        ],
+                    },
+                    "category": "csaf_base",
+                },
+            }
+
+            validator = Validator(csaf_schema_path)
+
+            doc = copy.deepcopy(base_csaf_doc)
+
+            if lang:
+
+                doc["document"]["lang"] = lang
+
+            if source_lang:
+
+                doc["document"]["source_lang"] = source_lang
+
+            temp_file = data_path / "temp_language_test.json"
+
+            with open(temp_file, "w") as f:
+
+                json.dump(doc, f, indent=2)
+
+            result = validator.validate(temp_file)
+
+            if is_valid:
+
+                assert result.is_valid
+
+            else:
+
+                assert not result.is_valid
+
+                assert any(
+                    err.rule == Rule.MANDATORY_LANGUAGE.name
+                    and error_message_part in err.message
+                    for err in result.errors
+                )
+
+            temp_file.unlink()
+
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
