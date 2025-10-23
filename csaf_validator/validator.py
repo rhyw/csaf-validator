@@ -8,6 +8,7 @@ from csaf_validator.rules import (
     ValidationError,
     check_mandatory_circular_definition_of_product_id,
     check_mandatory_contradicting_product_status,
+    check_mandatory_invalid_cvss_computation,
     check_mandatory_missing_product_group_id_definition,
     check_mandatory_missing_product_id_definition,
     check_mandatory_multiple_definition_of_product_group_id,
@@ -65,5 +66,7 @@ class Validator:
         errors.extend(
             check_mandatory_multiple_scores_with_same_version_per_product(instance)
         )
+        errors.extend(check_mandatory_invalid_cvss_computation(instance))
+        errors.extend(check_mandatory_invalid_cvss_computation(instance))
 
         return ValidationResult(not bool(errors), errors)

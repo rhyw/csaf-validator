@@ -658,7 +658,6 @@ def test_mandatory_contradicting_product_status(
     temp_file.unlink()
 
 
-
 @pytest.mark.parametrize(
     "scores, is_valid, error_message_part",
     [
@@ -856,13 +855,347 @@ def test_mandatory_multiple_scores_with_same_version_per_product(
     temp_file.unlink()
 
 
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_multiple_definition_in_involvements():
+@pytest.mark.parametrize(
+    "scores, is_valid, error_message_part",
+    [
+        # Valid: CVSS v3.1 correct
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                    },
+                }
+            ],
+            True,
+            None,
+        ),
+        # Valid: CVSS v2.0 correct
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                        "baseScore": 7.5,
+                    },
+                }
+            ],
+            True,
+            None,
+        ),
+        # Invalid: CVSS v3.1 incorrect baseScore
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.4,  # Incorrect
+                        "baseSeverity": "HIGH",
+                    },
+                }
+            ],
+            False,
+            "baseScore in vulnerability 0, score 0 is 7.4, but should be 7.5",
+        ),
+        # Invalid: CVSS v3.1 incorrect baseSeverity
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "MEDIUM",  # Incorrect
+                    },
+                }
+            ],
+            False,
+            "baseSeverity in vulnerability 0, score 0 is 'MEDIUM', but should be 'High'",
+        ),
+        # Invalid: CVSS v2.0 incorrect baseScore
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                        "baseScore": 7.4,  # Incorrect
+                    },
+                }
+            ],
+            False,
+            "baseScore in vulnerability 0, score 0 is 7.4, but should be 7.5",
+        ),
+    ],
+)
+def test_mandatory_invalid_cvss_computation(
+    scores, is_valid, error_message_part, data_path, csaf_schema_path
+):
     """
-    6.1.24 Multiple Definition in Involvements
-    It MUST be tested that items of the list of involvements do not contain the
-    same `party` regardless of its `status` more than once at any `date`.
+    6.1.9 Invalid CVSS computation
+    It MUST be tested that the given CVSS object has the values computed
+    correctly according to the definition.
     """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0008",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+            ],
+        },
+        "vulnerabilities": [
+            {
+                "title": "Vulnerability 1",
+                "scores": scores,
+            }
+        ],
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_invalid_cvss_computation.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert result.is_valid
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+        temp_file.unlink()
+
+    @pytest.mark.parametrize(
+        "scores, is_valid, error_message_part",
+        [
+            # Valid: CVSS v3.1 correct
+            (
+                [
+                    {
+                        "products": ["CSAFPID-0001"],
+                        "cvss_v3": {
+                            "version": "3.1",
+                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                            "baseScore": 7.5,
+                            "baseSeverity": "HIGH",
+                        },
+                    }
+                ],
+                True,
+                None,
+            ),
+            # Valid: CVSS v2.0 correct
+            (
+                [
+                    {
+                        "products": ["CSAFPID-0001"],
+                        "cvss_v2": {
+                            "version": "2.0",
+                            "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                            "baseScore": 7.5,
+                        },
+                    }
+                ],
+                True,
+                None,
+            ),
+            # Invalid: CVSS v3.1 incorrect baseScore
+            (
+                [
+                    {
+                        "products": ["CSAFPID-0001"],
+                        "cvss_v3": {
+                            "version": "3.1",
+                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                            "baseScore": 7.4,  # Incorrect
+                            "baseSeverity": "HIGH",
+                        },
+                    }
+                ],
+                False,
+                "baseScore in vulnerability 0, score 0 is 7.4, but should be 7.5",
+            ),
+            # Invalid: CVSS v3.1 incorrect baseSeverity
+            (
+                [
+                    {
+                        "products": ["CSAFPID-0001"],
+                        "cvss_v3": {
+                            "version": "3.1",
+                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                            "baseScore": 7.5,
+                            "baseSeverity": "MEDIUM",  # Incorrect
+                        },
+                    }
+                ],
+                False,
+                "baseSeverity in vulnerability 0, score 0 is 'MEDIUM', but should be 'High'",
+            ),
+            # Invalid: CVSS v2.0 incorrect baseScore
+            (
+                [
+                    {
+                        "products": ["CSAFPID-0001"],
+                        "cvss_v2": {
+                            "version": "2.0",
+                            "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                            "baseScore": 7.4,  # Incorrect
+                        },
+                    }
+                ],
+                False,
+                "baseScore in vulnerability 0, score 0 is 7.4, but should be 7.5",
+            ),
+        ],
+    )
+    def test_mandatory_invalid_cvss_computation(
+        scores, is_valid, error_message_part, data_path, csaf_schema_path
+    ):
+        """
+
+
+
+
+
+        6.1.9 Invalid CVSS computation
+
+
+
+
+
+        It MUST be tested that the given CVSS object has the values computed
+
+
+
+
+
+        correctly according to the definition.
+
+
+
+
+
+        """
+
+        base_csaf_doc = {
+            "document": {
+                "csaf_version": "2.0",
+                "publisher": {
+                    "category": "vendor",
+                    "name": "Example Company",
+                    "namespace": "https://example.com",
+                },
+                "title": "Test Advisory",
+                "tracking": {
+                    "id": "TEST-2023-0008",
+                    "status": "final",
+                    "version": "1.0.0",
+                    "initial_release_date": "2023-01-01T00:00:00Z",
+                    "current_release_date": "2023-01-01T00:00:00Z",
+                    "revision_history": [
+                        {
+                            "date": "2023-01-01T00:00:00Z",
+                            "number": "1.0.0",
+                            "summary": "Initial release",
+                        }
+                    ],
+                },
+                "category": "csaf_base",
+            },
+            "product_tree": {
+                "full_product_names": [
+                    {"product_id": "CSAFPID-0001", "name": "Product A"},
+                ],
+            },
+            "vulnerabilities": [
+                {
+                    "title": "Vulnerability 1",
+                    "scores": scores,
+                }
+            ],
+        }
+
+        validator = Validator(csaf_schema_path)
+
+        doc = copy.deepcopy(base_csaf_doc)
+
+        temp_file = data_path / "temp_invalid_cvss_computation.json"
+
+        with open(temp_file, "w") as f:
+
+            json.dump(doc, f, indent=2)
+
+        result = validator.validate(temp_file)
+
+        if is_valid:
+
+            assert result.is_valid
+
+        else:
+
+            assert not result.is_valid
+
+            assert any(
+                err.rule == Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name
+                and error_message_part in err.message
+                for err in result.errors
+            )
+
+        temp_file.unlink()
+
+    @pytest.mark.skip(reason="Not implemented yet")
+    def test_mandatory_multiple_definition_in_involvements():
+        """
+
+
+
+
+
+            6.1.24 Multiple Definition in Involvements
+        It MUST be tested that items of the list of involvements do not contain the
+        same `party` regardless of its `status` more than once at any `date`.
+        """
+
     pass
 
 

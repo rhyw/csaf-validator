@@ -44,7 +44,11 @@ class Rule(Enum):
         "For each item in /vulnerabilities it MUST be tested that the same "
         "Product ID is not member of more than one CVSS-Vectors with the same version.",
     )
-
+    MANDATORY_INVALID_CVSS_COMPUTATION = (
+        "6.1.9 Invalid CVSS computation",
+        "It MUST be tested that the given CVSS object has the values computed "
+        "correctly according to the definition.",
+    )
 
 
 class ValidationError:
@@ -427,9 +431,7 @@ def check_mandatory_multiple_scores_with_same_version_per_product(doc):
                         product_scores[product_id] = set()
 
                     if cvss_version in product_scores[product_id]:
-                        message = (
-                            f"Product ID '{product_id}' has multiple scores for CVSS version {cvss_version}"
-                        )
+                        message = f"Product ID '{product_id}' has multiple scores for CVSS version {cvss_version}"
                         # To prevent duplicate errors for the same issue
                         if not any(
                             err.message == message
@@ -590,5 +592,102 @@ def check_mandatory_contradicting_product_status(doc):
                         message,
                     )
                 )
+
+    return errors
+
+
+def check_mandatory_invalid_cvss_computation(doc):
+    """
+    6.1.9 Invalid CVSS computation
+    It MUST be tested that the given CVSS object has the values computed
+    correctly according to the definition. The `vectorString` SHOULD take
+    precedence.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "scores" not in vuln:
+            continue
+
+        for score_index, score in enumerate(vuln.get("scores", [])):
+            if "cvss_v3" in score:
+                cvss_data = score["cvss_v3"]
+                vector_string = cvss_data.get("vectorString")
+                if vector_string:
+                    try:
+                        from cvss import CVSS3
+
+                        # The library automatically handles 3.0 vs 3.1 from the vector string
+                        c = CVSS3(vector_string)
+                        computed_score = c.base_score
+                        computed_severity = (
+                            c.severities()[0] if hasattr(c, "severities") else "UNKNOWN"
+                        )
+
+                        if "baseScore" in cvss_data and float(
+                            cvss_data["baseScore"]
+                        ) != float(computed_score):
+                            errors.append(
+                                ValidationError(
+                                    Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name,
+                                    f"CVSS v3.x baseScore in vulnerability {vuln_index}, score {score_index} "
+                                    f"is {cvss_data['baseScore']}, but should be {computed_score} "
+                                    f"based on vectorString '{vector_string}'.",
+                                )
+                            )
+                        if (
+                            "baseSeverity" in cvss_data
+                            and hasattr(c, "severities")
+                            and cvss_data["baseSeverity"].upper()
+                            != computed_severity.upper()
+                        ):
+                            errors.append(
+                                ValidationError(
+                                    Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name,
+                                    f"CVSS v3.x baseSeverity in vulnerability {vuln_index}, score {score_index} "
+                                    f"is '{cvss_data['baseSeverity']}', but should be '{computed_severity}' "
+                                    f"based on vectorString '{vector_string}'.",
+                                )
+                            )
+                    except Exception as e:
+                        errors.append(
+                            ValidationError(
+                                Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name,
+                                f"Error parsing CVSS v3.x vectorString '{vector_string}' "
+                                f"in vulnerability {vuln_index}, score {score_index}: {e}",
+                            )
+                        )
+
+            if "cvss_v2" in score:
+                cvss_data = score["cvss_v2"]
+                vector_string = cvss_data.get("vectorString")
+                if vector_string:
+                    try:
+                        from cvss import CVSS2
+
+                        c = CVSS2(vector_string)
+                        computed_score = c.base_score
+
+                        if "baseScore" in cvss_data and float(
+                            cvss_data["baseScore"]
+                        ) != float(computed_score):
+                            errors.append(
+                                ValidationError(
+                                    Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name,
+                                    f"CVSS v2.0 baseScore in vulnerability {vuln_index}, score {score_index} "
+                                    f"is {cvss_data['baseScore']}, but should be {computed_score} "
+                                    f"based on vectorString '{vector_string}'.",
+                                )
+                            )
+                    except Exception as e:
+                        errors.append(
+                            ValidationError(
+                                Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name,
+                                f"Error parsing CVSS v2.0 vectorString '{vector_string}' "
+                                f"in vulnerability {vuln_index}, score {score_index}: {e}",
+                            )
+                        )
 
     return errors
