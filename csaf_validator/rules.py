@@ -241,6 +241,7 @@ def check_mandatory_circular_definition_of_product_id(doc):
 
         for neighbor in adj.get(node, []):
             if neighbor in visiting:
+                print(f"DEBUG: Circular dependency detected for {neighbor}")
                 errors.append(
                     ValidationError(
                         Rule.MANDATORY_CIRCULAR_DEFINITION_OF_PRODUCT_ID.name,

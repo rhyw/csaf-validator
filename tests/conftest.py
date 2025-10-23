@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -32,4 +33,4 @@ def data_path():
     """
     Fixture that provides the path to the sample data directory.
     """
-    return os.path.join(os.path.dirname(__file__), "..", "csaf_validator", "samples")
+    return Path(os.path.dirname(__file__)) / ".." / "csaf_validator" / "samples"

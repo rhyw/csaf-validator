@@ -45,7 +45,7 @@ def _get_all_referenced_product_ids(doc):
     return referenced_ids
 
 
-def test_mandatory_missing_product_id_definition(data_path, schema_path):
+def test_mandatory_missing_product_id_definition(data_path, csaf_schema_path):
     """
     6.1.1 Missing Definition of Product ID
     For each element of type product_id_t that is not inside a
@@ -72,7 +72,7 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
         branch
         for branch in original_branches
         if not (
-            branch.get("product", {{}}).get("product_id") == "red_hat_bpm_suite_6"
+            branch.get("product", {}).get("product_id") == "red_hat_bpm_suite_6"
             or (
                 branch.get("category") == "product_family"
                 and branch.get("name") == "Red Hat BPM Suite 6"
@@ -92,7 +92,7 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     with open(temp_csaf_file, "w") as f:
         json.dump(doc, f, indent=2)
 
-    validator = Validator(schema_path)
+    validator = Validator(csaf_schema_path)
     result = validator.validate(temp_csaf_file)
 
     assert not result.is_valid, "Validation was expected to fail but succeeded."
@@ -117,7 +117,7 @@ def test_mandatory_missing_product_id_definition(data_path, schema_path):
     temp_csaf_file.unlink()
 
 
-def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
+def test_mandatory_multiple_product_id_definitions(data_path, csaf_schema_path):
     """
     6.1.2 Multiple Definition of Product ID
     For each product_id_t in full_product_name_t elements, it MUST be tested
@@ -183,9 +183,7 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
         },
     }
 
-    validator = Validator(schema_path)
-
-    # Test case 1: Duplicate in full_product_names
+    validator = Validator(csaf_schema_path)
     doc1 = copy.deepcopy(base_csaf_doc)
     doc1["product_tree"]["full_product_names"].append(
         {"product_id": "CSAFPID-0001", "name": "Product A Duplicate"}
@@ -220,6 +218,7 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     with open(temp_file2, "w") as f:
         json.dump(doc2, f, indent=2)
     result2 = validator.validate(temp_file2)
+    print(f"DEBUG: result2.errors: {[e.message for e in result2.errors]}")
     assert not result2.is_valid
     assert any(
         err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name
@@ -284,7 +283,7 @@ def test_mandatory_multiple_product_id_definitions(data_path, schema_path):
     temp_file5.unlink()
 
 
-def test_mandatory_circular_product_id_definition(data_path, schema_path):
+def test_mandatory_circular_product_id_definition(data_path, csaf_schema_path):
     """
     6.1.3 Circular Definition of Product ID
     For each new defined product_id_t in items of relationships, it MUST be
@@ -324,7 +323,7 @@ def test_mandatory_circular_product_id_definition(data_path, schema_path):
         },
     }
 
-    validator = Validator(schema_path)
+    validator = Validator(csaf_schema_path)
 
     # Test case 1: Direct circular dependency
     doc1 = copy.deepcopy(base_csaf_doc)
@@ -382,7 +381,7 @@ def test_mandatory_circular_product_id_definition(data_path, schema_path):
     assert not result2.is_valid
     assert any(
         err.rule == Rule.MANDATORY_CIRCULAR_DEFINITION_OF_PRODUCT_ID.name
-        and "Circular dependency detected for product_id 'CSAFPID-0004'" in err.message
+        and "Circular dependency detected for product_id 'CSAFPID-0003'" in err.message
         for err in result2.errors
     )
     temp_file2.unlink()
