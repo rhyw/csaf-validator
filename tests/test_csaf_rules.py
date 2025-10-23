@@ -1181,20 +1181,207 @@ def test_mandatory_invalid_cvss_computation(
                 for err in result.errors
             )
 
-        temp_file.unlink()
+            temp_file.unlink()
 
-    @pytest.mark.skip(reason="Not implemented yet")
-    def test_mandatory_multiple_definition_in_involvements():
-        """
+        def test_mandatory_inconsistent_cvss(data_path, csaf_schema_path):
+            """
 
+            6.1.10 Inconsistent CVSS
 
+            It MUST be tested that the given CVSS properties do not contradict the CVSS vector.
 
+            """
 
+            base_csaf_doc = {
+                "document": {
+                    "csaf_version": "2.0",
+                    "publisher": {
+                        "category": "vendor",
+                        "name": "Example Company",
+                        "namespace": "https://example.com",
+                    },
+                    "title": "Test Advisory",
+                    "tracking": {
+                        "id": "TEST-2023-0009",
+                        "status": "final",
+                        "version": "1.0.0",
+                        "initial_release_date": "2023-01-01T00:00:00Z",
+                        "current_release_date": "2023-01-01T00:00:00Z",
+                        "revision_history": [
+                            {
+                                "date": "2023-01-01T00:00:00Z",
+                                "number": "1.0.0",
+                                "summary": "Initial release",
+                            }
+                        ],
+                    },
+                    "category": "csaf_base",
+                },
+                "product_tree": {
+                    "full_product_names": [
+                        {"product_id": "CSAFPID-0001", "name": "Product A"},
+                    ],
+                },
+                "vulnerabilities": [
+                    {
+                        "title": "Vulnerability 1",
+                        "scores": [],
+                    }
+                ],
+            }
 
-            6.1.24 Multiple Definition in Involvements
-        It MUST be tested that items of the list of involvements do not contain the
-        same `party` regardless of its `status` more than once at any `date`.
-        """
+            validator = Validator(csaf_schema_path)
+
+            # Test case 1: Consistent CVSS v3.1
+
+            doc1 = copy.deepcopy(base_csaf_doc)
+
+            doc1["vulnerabilities"][0]["scores"].append(
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                        "attackVector": "NETWORK",
+                        "attackComplexity": "LOW",
+                        "privilegesRequired": "NONE",
+                        "userInteraction": "NONE",
+                        "scope": "UNCHANGED",
+                        "confidentialityImpact": "HIGH",
+                        "integrityImpact": "NONE",
+                        "availabilityImpact": "NONE",
+                    },
+                }
+            )
+
+            temp_file1 = data_path / "temp_consistent_cvss_v3.json"
+
+            with open(temp_file1, "w") as f:
+
+                json.dump(doc1, f, indent=2)
+
+            result1 = validator.validate(temp_file1)
+
+            assert result1.is_valid
+
+            temp_file1.unlink()
+
+            # Test case 2: Inconsistent CVSS v3.1
+
+            doc2 = copy.deepcopy(base_csaf_doc)
+
+            doc2["vulnerabilities"][0]["scores"].append(
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                        "attackVector": "LOCAL",  # Inconsistent
+                    },
+                }
+            )
+
+            temp_file2 = data_path / "temp_inconsistent_cvss_v3.json"
+
+            with open(temp_file2, "w") as f:
+
+                json.dump(doc2, f, indent=2)
+
+            result2 = validator.validate(temp_file2)
+
+            assert not result2.is_valid
+
+            assert any(
+                err.rule == Rule.MANDATORY_INCONSISTENT_CVSS.name
+                and "attackVector" in err.message
+                and "LOCAL" in err.message
+                and "NETWORK" in err.message
+                for err in result2.errors
+            )
+
+            temp_file2.unlink()
+
+            # Test case 3: Consistent CVSS v2.0
+
+            doc3 = copy.deepcopy(base_csaf_doc)
+
+            doc3["vulnerabilities"][0]["scores"].append(
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                        "baseScore": 7.5,
+                        "accessVector": "NETWORK",
+                        "accessComplexity": "LOW",
+                        "authentication": "NONE",
+                        "confidentialityImpact": "PARTIAL",
+                        "integrityImpact": "PARTIAL",
+                        "availabilityImpact": "PARTIAL",
+                    },
+                }
+            )
+
+            temp_file3 = data_path / "temp_consistent_cvss_v2.json"
+
+            with open(temp_file3, "w") as f:
+
+                json.dump(doc3, f, indent=2)
+
+            result3 = validator.validate(temp_file3)
+
+            assert result3.is_valid
+
+            temp_file3.unlink()
+
+            # Test case 4: Inconsistent CVSS v2.0
+
+            doc4 = copy.deepcopy(base_csaf_doc)
+
+            doc4["vulnerabilities"][0]["scores"].append(
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                        "baseScore": 7.5,
+                        "accessVector": "LOCAL",  # Inconsistent
+                    },
+                }
+            )
+
+            temp_file4 = data_path / "temp_inconsistent_cvss_v2.json"
+
+            with open(temp_file4, "w") as f:
+
+                json.dump(doc4, f, indent=2)
+
+            result4 = validator.validate(temp_file4)
+
+            assert not result4.is_valid
+
+            assert any(
+                err.rule == Rule.MANDATORY_INCONSISTENT_CVSS.name
+                and "accessVector" in err.message
+                and "LOCAL" in err.message
+                and "NETWORK" in err.message
+                for err in result4.errors
+            )
+
+            temp_file4.unlink()
+
+        @pytest.mark.skip(reason="Not implemented yet")
+        def test_mandatory_multiple_definition_in_involvements():
+            """
+
+                6.1.24 Multiple Definition in Involvements
+            It MUST be tested that items of the list of involvements do not contain the
+            same `party` regardless of its `status` more than once at any `date`.
+            """
 
     pass
 

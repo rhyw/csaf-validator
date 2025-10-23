@@ -49,6 +49,10 @@ class Rule(Enum):
         "It MUST be tested that the given CVSS object has the values computed "
         "correctly according to the definition.",
     )
+    MANDATORY_INCONSISTENT_CVSS = (
+        "6.1.10 Inconsistent CVSS",
+        "It MUST be tested that the given CVSS properties do not contradict the CVSS vector.",
+    )
 
 
 class ValidationError:
@@ -690,4 +694,77 @@ def check_mandatory_invalid_cvss_computation(doc):
                             )
                         )
 
+    return errors
+
+
+def check_mandatory_inconsistent_cvss(doc):
+    """
+    6.1.10 Inconsistent CVSS
+    It MUST be tested that the given CVSS properties do not contradict the CVSS vector.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "scores" not in vuln:
+            continue
+
+        for score_index, score in enumerate(vuln.get("scores", [])):
+            if "cvss_v3" in score:
+                cvss_data = score["cvss_v3"]
+                vector_string = cvss_data.get("vectorString")
+                if vector_string:
+                    try:
+                        from cvss import CVSS3
+
+                        c = CVSS3(vector_string)
+                        metrics = c.metrics
+
+                        for key, value in metrics.items():
+                            if key in cvss_data and cvss_data[key] != value:
+                                errors.append(
+                                    ValidationError(
+                                        Rule.MANDATORY_INCONSISTENT_CVSS.name,
+                                        f"CVSS v3.x {key} in vulnerability {vuln_index}, score {score_index} "
+                                        f"is '{cvss_data[key]}', but should be '{value}' "
+                                        f"based on vectorString '{vector_string}'.",
+                                    )
+                                )
+                    except Exception as e:
+                        errors.append(
+                            ValidationError(
+                                Rule.MANDATORY_INCONSISTENT_CVSS.name,
+                                f"Error parsing CVSS v3.x vectorString '{vector_string}' "
+                                f"in vulnerability {vuln_index}, score {score_index}: {e}",
+                            )
+                        )
+            if "cvss_v2" in score:
+                cvss_data = score["cvss_v2"]
+                vector_string = cvss_data.get("vectorString")
+                if vector_string:
+                    try:
+                        from cvss import CVSS2
+
+                        c = CVSS2(vector_string)
+                        metrics = c.metrics
+
+                        for key, value in metrics.items():
+                            if key in cvss_data and cvss_data[key] != value:
+                                errors.append(
+                                    ValidationError(
+                                        Rule.MANDATORY_INCONSISTENT_CVSS.name,
+                                        f"CVSS v2.0 {key} in vulnerability {vuln_index}, score {score_index} "
+                                        f"is '{cvss_data[key]}', but should be '{value}' "
+                                        f"based on vectorString '{vector_string}'.",
+                                    )
+                                )
+                    except Exception as e:
+                        errors.append(
+                            ValidationError(
+                                Rule.MANDATORY_INCONSISTENT_CVSS.name,
+                                f"Error parsing CVSS v2.0 vectorString '{vector_string}' "
+                                f"in vulnerability {vuln_index}, score {score_index}: {e}",
+                            )
+                        )
     return errors
