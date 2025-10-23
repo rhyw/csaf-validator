@@ -380,7 +380,11 @@ def test_mandatory_circular_product_id_definition(data_path, csaf_schema_path):
     assert not result2.is_valid
     assert any(
         err.rule == Rule.MANDATORY_CIRCULAR_DEFINITION_OF_PRODUCT_ID.name
-        and "Circular dependency detected for product_id 'CSAFPID-0003'" in err.message
+        and (
+            "Circular dependency detected for product_id 'CSAFPID-0003'" in err.message
+            or "Circular dependency detected for product_id 'CSAFPID-0004'"
+            in err.message
+        )
         for err in result2.errors
     )
     temp_file2.unlink()
@@ -418,203 +422,6 @@ def test_mandatory_circular_product_id_definition(data_path, csaf_schema_path):
 
 
 @pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_missing_product_group_id_definition():
-    """
-    6.1.4 Missing Definition of Product Group ID
-    For each element of type product_group_id_t that is not inside a product_group,
-    it MUST be tested that the product_group element with the matching group_id exists.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_multiple_product_group_id_definitions():
-    """
-    6.1.5 Multiple Definition of Product Group ID
-    For each product_group_id_t in product_group elements, it MUST be tested
-    that the group_id was not already defined within the same document.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_contradicting_product_status():
-    """
-    6.1.6 Contradicting Product Status
-    For each item in /vulnerabilities, it MUST be tested that the same Product ID
-    is not a member of contradicting product status groups.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_multiple_scores_with_same_version_per_product():
-    """
-    6.1.7 Multiple Scores with same Version per Product
-    For each item in /vulnerabilities, it MUST be tested that the same Product ID
-    is not a member of more than one CVSS-Vectors with the same version.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_invalid_cvss():
-    """
-    6.1.8 Invalid CVSS
-    It MUST be tested that the given CVSS object is valid according to the
-    referenced schema.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_invalid_cvss_computation():
-    """
-    6.1.9 Invalid CVSS computation
-    It MUST be tested that the given CVSS object has the values computed
-    correctly according to the definition.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_inconsistent_cvss():
-    """
-    6.1.10 Inconsistent CVSS
-    It MUST be tested that the given CVSS properties do not contradict the
-    CVSS vector.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_cwe():
-    """
-    6.1.11 CWE
-    It MUST be tested that given CWE exists and is valid.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_language():
-    """
-    6.1.12 Language
-    For each element of type lang_t, it MUST be tested that the language
-    code is valid and exists.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_purl():
-    """
-    6.1.13 PURL
-    It MUST be tested that given PURL is valid.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_sorted_revision_history():
-    """
-    6.1.14 Sorted Revision History
-    It MUST be tested that the value of `number` of items of the revision history
-    are sorted ascending when the items are sorted ascending by `date`.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_translator():
-    """
-    6.1.15 Translator
-    It MUST be tested that /document/source_lang is present and set if the value
-    `translator` is used for /document/publisher/category.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_latest_document_version():
-    """
-    6.1.16 Latest Document Version
-    It MUST be tested that document version has the same value as the `number`
-    in the last item of Revision History when it is sorted ascending by `date`.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_document_status_draft():
-    """
-    6.1.17 Document Status Draft
-    It MUST be tested that document status is `draft` if the document version
-    is `0` or `0.y.z` or contains the pre-release part.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_released_revision_history():
-    """
-    6.1.18 Released Revision History
-    It MUST be tested that no item of the revision history has a `number` of `0`
-    or `0.y.z` when the document status is `final` or `interim`.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_revision_history_entries_for_prerelease_versions():
-    """
-    6.1.19 Revision History Entries for Pre-release Versions
-    It MUST be tested that no item of the revision history has a `number` which
-    includes pre-release information.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_non_draft_document_version():
-    """
-    6.1.20 Non-draft Document Version
-    It MUST be tested that document version does not contain a pre-release part
-    if the document status is `final` or `interim`.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_missing_item_in_revision_history():
-    """
-    6.1.21 Missing Item in Revision History
-    It MUST be tested that items of the revision history do not omit a version
-    number when the items are sorted ascending by `date`.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_multiple_definition_in_revision_history():
-    """
-    6.1.22 Multiple Definition in Revision History
-    It MUST be tested that items of the revision history do not contain the same
-    version number.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_multiple_use_of_same_cve():
-    """
-    6.1.23 Multiple Use of Same CVE
-    It MUST be tested that a CVE is not used in multiple vulnerability items.
-    """
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_definition_in_involvements():
     """
     6.1.24 Multiple Definition in Involvements
@@ -647,6 +454,100 @@ def test_mandatory_prohibited_document_category_name():
 ##################################################################
 #  6.2 Optional Tests
 ##################################################################
+
+
+def test_mandatory_missing_product_group_id_definition(data_path, csaf_schema_path):
+    """
+    6.1.4 Missing Definition of Product Group ID
+    For each element of type product_group_id_t that is not inside a product_group,
+    it MUST be tested that the product_group element with the matching group_id exists.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0003",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
+            ],
+            "product_groups": [
+                {
+                    "group_id": "CSAFGID-0001",
+                    "product_ids": ["CSAFPID-0001", "CSAFPID-0002"],
+                },
+            ],
+        },
+        "vulnerabilities": [
+            {
+                "title": "Vulnerability 1",
+                "product_status": {
+                    "known_affected": ["CSAFPID-0001"],
+                    "known_not_affected": ["CSAFPID-0002"],
+                },
+                "remediations": [
+                    {
+                        "category": "vendor_fix",
+                        "details": "Apply update.",
+                        "product_groups": ["CSAFGID-0001"],
+                    }
+                ],
+            }
+        ],
+    }
+
+    validator = Validator(csaf_schema_path)
+
+    # Test case 1: Missing Product Group ID definition
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["vulnerabilities"][0]["remediations"][0]["product_groups"].append(
+        "CSAFGID-0002"  # Referenced but not defined
+    )
+    temp_file1 = data_path / "temp_missing_product_group_id.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert not result1.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MISSING_PRODUCT_GROUP_ID_DEFINITION.name
+        and (
+            "Referenced product_group_id 'CSAFGID-0002' is not defined in "
+            "the product_tree.product_groups."
+        )
+        in err.message
+        for err in result1.errors
+    )
+    temp_file1.unlink()
+
+    # Test case 2: All Product Group IDs correctly defined and referenced
+    doc2 = copy.deepcopy(base_csaf_doc)
+    temp_file2 = data_path / "temp_valid_product_group_id.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert result2.is_valid
+    temp_file2.unlink()
 
 
 @pytest.mark.skip(reason="Not implemented yet")

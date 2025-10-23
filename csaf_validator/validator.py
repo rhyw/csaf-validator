@@ -7,6 +7,7 @@ import jsonschema
 from csaf_validator.rules import (
     ValidationError,
     check_mandatory_circular_definition_of_product_id,
+    check_mandatory_missing_product_group_id_definition,
     check_mandatory_missing_product_id_definition,
     check_mandatory_multiple_product_id_definitions,
 )
@@ -55,5 +56,6 @@ class Validator:
         errors.extend(check_mandatory_missing_product_id_definition(instance))
         errors.extend(check_mandatory_multiple_product_id_definitions(instance))
         errors.extend(check_mandatory_circular_definition_of_product_id(instance))
+        errors.extend(check_mandatory_missing_product_group_id_definition(instance))
 
         return ValidationResult(not bool(errors), errors)

@@ -23,6 +23,12 @@ class Rule(Enum):
         "For each new defined product_id_t in items of relationships, it MUST "
         "be tested that the product_id does not end up in a circle.",
     )
+    MANDATORY_MISSING_PRODUCT_GROUP_ID_DEFINITION = (
+        "6.1.4 Missing Definition of Product Group ID",
+        "For each element of type product_group_id_t that is not inside a "
+        "product_group, it MUST be tested that the product_group element with "
+        "the matching group_id exists.",
+    )
 
 
 class ValidationError:
@@ -241,7 +247,6 @@ def check_mandatory_circular_definition_of_product_id(doc):
 
         for neighbor in adj.get(node, []):
             if neighbor in visiting:
-                print(f"DEBUG: Circular dependency detected for {neighbor}")
                 errors.append(
                     ValidationError(
                         Rule.MANDATORY_CIRCULAR_DEFINITION_OF_PRODUCT_ID.name,
@@ -276,3 +281,71 @@ def check_mandatory_circular_definition_of_product_id(doc):
             seen_messages.add(error.message)
 
     return unique_errors
+
+
+def get_all_product_group_ids(doc):
+    """
+    Collects all defined product_group_ids within the `product_tree.product_groups`
+    section of a CSAF document.
+
+    Args:
+        doc (dict): The CSAF document as a dictionary.
+
+    Returns:
+        set: A set of all unique product group IDs defined in the product_tree.
+    """
+    product_group_ids = set()
+    if "product_tree" not in doc:
+        return product_group_ids
+
+    product_tree = doc["product_tree"]
+
+    if "product_groups" in product_tree:
+        for group in product_tree.get("product_groups", []):
+            if "group_id" in group:
+                product_group_ids.add(group["group_id"])
+
+    return product_group_ids
+
+
+def check_mandatory_missing_product_group_id_definition(doc):
+    """
+    6.1.4 Missing Definition of Product Group ID
+    For each element of type product_group_id_t that is not inside a product_group,
+    it MUST be tested that the product_group element with the matching group_id exists.
+    """
+    defined_group_ids = get_all_product_group_ids(doc)
+    referenced_group_ids = set()
+    errors = []
+
+    # Helper to collect product group IDs from lists
+    def collect_group_ids(id_list):
+        if isinstance(id_list, list):
+            for group_id in id_list:
+                referenced_group_ids.add(group_id)
+
+    # Gather all referenced Product Group IDs
+    for vuln in doc.get("vulnerabilities", []):
+        for remediation in vuln.get("remediations", []):
+            collect_group_ids(remediation.get("product_groups", []))
+        for score in vuln.get("scores", []):
+            collect_group_ids(score.get("product_groups", []))
+        for threat in vuln.get("threats", []):
+            collect_group_ids(threat.get("product_groups", []))
+        for flag in vuln.get("flags", []):
+            collect_group_ids(flag.get("product_groups", []))
+
+    # Check for missing definitions
+    missing_group_ids = referenced_group_ids - defined_group_ids
+    if missing_group_ids:
+        print(f"DEBUG: Missing product group IDs: {missing_group_ids}")
+    for missing_id in missing_group_ids:
+        errors.append(
+            ValidationError(
+                Rule.MANDATORY_MISSING_PRODUCT_GROUP_ID_DEFINITION.name,
+                f"Referenced product_group_id '{missing_id}' is not defined in "
+                "the product_tree.product_groups.",
+            )
+        )
+
+    return errors

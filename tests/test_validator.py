@@ -4,8 +4,6 @@ import os
 
 import pytest
 
-from csaf_validator.validator import Validator
-
 
 def test_validator_initialization(validator):
     """Tests that the Validator class initializes correctly."""
