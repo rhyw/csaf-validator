@@ -51,3 +51,14 @@ Alternatively, use the Makefile:
 ```bash
 make test
 ```
+
+### Maintaining Dependencies
+
+This project uses `uv` for dependency management, with `requirements.txt` ensuring reproducible builds.
+
+To update dependencies (e.g., when a new version of a package is needed):
+
+1.  **Update `pyproject.toml`**: Modify the version specifier for the desired package.
+2.  **Generate `requirements.txt`**: Run `uv pip compile pyproject.toml -o requirements.txt` to re-generate the lock file based on `pyproject.toml`.
+3.  **Sync environment**: Run `uv pip sync requirements.txt` to install the updated dependencies into your virtual environment.
+4.  **Commit changes**: Commit both `pyproject.toml` and `requirements.txt` to version control.

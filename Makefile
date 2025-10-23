@@ -1,7 +1,12 @@
-.PHONY: install test
+.PHONY: install test validate update-deps
 
 install:
 	@uv pip install -e .
+
+update-deps:
+	@echo "Updating dependencies..."
+	@uv pip compile pyproject.toml -o requirements.txt
+	@uv pip sync requirements.txt
 
 test: install
 	@uv run pytest
