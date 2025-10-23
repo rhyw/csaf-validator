@@ -1,7 +1,7 @@
 .PHONY: install test
 
 install:
-	@pip install -e ".[dev]"
+	@uv pip install -e .
 
 test: install
 	pytest

@@ -5,7 +5,7 @@ A tool to validate CSAF (Common Security Advisory Framework) files against the C
 ## Installation
 
 ```bash
-pip install .
+uv pip install .
 ```
 
 ## Usage
@@ -35,9 +35,9 @@ make validate
 Set up your development environment:
 
 ```bash
-python3 -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+uv pip install -e .
 ```
 
 ### Running Tests
