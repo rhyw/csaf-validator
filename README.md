@@ -13,7 +13,7 @@ uv pip install .
 Validate a CSAF file:
 
 ```bash
-csaf-validator /path/to/your/csaf.json
+uv run csaf-validator /path/to/your/csaf.json
 ```
 
 Specify a schema version (e.g., 2.0):
@@ -43,7 +43,7 @@ uv pip install -e .
 ### Running Tests
 
 ```bash
-pytest
+uv run pytest
 ```
 
 Alternatively, use the Makefile:

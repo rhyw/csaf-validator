@@ -218,7 +218,6 @@ def test_mandatory_multiple_product_id_definitions(data_path, csaf_schema_path):
     with open(temp_file2, "w") as f:
         json.dump(doc2, f, indent=2)
     result2 = validator.validate(temp_file2)
-    print(f"DEBUG: result2.errors: {[e.message for e in result2.errors]}")
     assert not result2.is_valid
     assert any(
         err.rule == Rule.MANDATORY_MULTIPLE_PRODUCT_ID_DEFINITIONS.name
