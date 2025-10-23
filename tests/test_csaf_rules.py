@@ -510,7 +510,80 @@ def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schem
     temp_file2.unlink()
 
 
-def test_mandatory_contradicting_product_status(data_path, csaf_schema_path):
+@pytest.mark.parametrize(
+    "product_status_update, is_valid, error_message_part",
+    [
+        # Valid: No contradictions
+        ({}, True, None),
+        # Valid: Product in two lists of the same contradiction group
+        (
+            {"first_affected": ["CSAFPID-0001"]},
+            True,
+            None,
+        ),
+        # Valid: Product in 'affected' and 'recommended'
+        (
+            {"recommended": ["CSAFPID-0001"]},
+            True,
+            None,
+        ),
+        # Invalid: Affected vs. Not affected
+        (
+            {"known_not_affected": ["CSAFPID-0001"]},
+            False,
+            "is in both 'Affected' and 'Not affected' status groups",
+        ),
+        # Invalid: Affected vs. Fixed
+        (
+            {"fixed": ["CSAFPID-0001"]},
+            False,
+            "is in both 'Affected' and 'Fixed' status groups",
+        ),
+        # Invalid: Affected vs. Under investigation
+        (
+            {"under_investigation": ["CSAFPID-0001"]},
+            False,
+            "is in both 'Affected' and 'Under investigation' status groups",
+        ),
+        # Invalid: Not affected vs. Fixed
+        (
+            {
+                "known_affected": [],
+                "known_not_affected": ["CSAFPID-0003"],
+                "fixed": ["CSAFPID-0003"],
+            },
+            False,
+            "is in both 'Not affected' and 'Fixed' status groups",
+        ),
+        # Invalid: Not affected vs. Under investigation
+        (
+            {
+                "known_affected": [],
+                "known_not_affected": ["CSAFPID-0004"],
+                "under_investigation": ["CSAFPID-0004"],
+            },
+            False,
+            "is in both 'Not affected' and 'Under investigation' status groups",
+        ),
+        # Invalid: Fixed vs. Under investigation
+        (
+            {
+                "known_affected": [],
+                "fixed": ["CSAFPID-0004"],
+                "under_investigation": ["CSAFPID-0004"],
+            },
+            False,
+            "is in both 'Fixed' and 'Under investigation' status groups",
+        ),
+    ],
+)
+def test_mandatory_contradicting_product_status(
+    product_status_update,
+    is_valid,
+    error_message_part,
+    data_path,
+    csaf_schema_path,
+):
     """
     6.1.6 Contradicting Product Status
     For each item in /vulnerabilities it MUST be tested that the same Product ID
@@ -563,76 +636,26 @@ def test_mandatory_contradicting_product_status(data_path, csaf_schema_path):
     }
 
     validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+    doc["vulnerabilities"][0]["product_status"].update(product_status_update)
 
-    # Test case 1: Product in Known Affected and Known Not Affected
-    doc1 = copy.deepcopy(base_csaf_doc)
-    doc1["vulnerabilities"][0]["product_status"]["known_affected"].append(
-        "CSAFPID-0002"
-    )
-    temp_file1 = data_path / "temp_contradicting_product_status_1.json"
-    with open(temp_file1, "w") as f:
-        json.dump(doc1, f, indent=2)
-    result1 = validator.validate(temp_file1)
-    assert not result1.is_valid
-    assert any(
-        err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
-        and (
-            "Product ID 'CSAFPID-0002' in vulnerability 0 is in both "
-            "'Affected' and 'Not affected' status groups."
+    temp_file = data_path / "temp_contradicting_product_status.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert result.is_valid
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
+            and error_message_part in err.message
+            for err in result.errors
         )
-        in err.message
-        for err in result1.errors
-    )
-    temp_file1.unlink()
 
-    # Test case 2: Product in First Affected and Fixed
-    doc2 = copy.deepcopy(base_csaf_doc)
-    doc2["vulnerabilities"][0]["product_status"]["first_affected"] = ["CSAFPID-0003"]
-    temp_file2 = data_path / "temp_contradicting_product_status_2.json"
-    with open(temp_file2, "w") as f:
-        json.dump(doc2, f, indent=2)
-    result2 = validator.validate(temp_file2)
-    assert not result2.is_valid
-    assert any(
-        err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
-        and (
-            "Product ID 'CSAFPID-0003' in vulnerability 0 is in both "
-            "'Affected' and 'Fixed' status groups."
-        )
-        in err.message
-        for err in result2.errors
-    )
-    temp_file2.unlink()
-
-    # Test case 3: Product in Under Investigation and Known Affected
-    doc3 = copy.deepcopy(base_csaf_doc)
-    doc3["vulnerabilities"][0]["product_status"]["under_investigation"].append(
-        "CSAFPID-0001"
-    )
-    temp_file3 = data_path / "temp_contradicting_product_status_3.json"
-    with open(temp_file3, "w") as f:
-        json.dump(doc3, f, indent=2)
-    result3 = validator.validate(temp_file3)
-    assert not result3.is_valid
-    assert any(
-        err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
-        and (
-            "Product ID 'CSAFPID-0001' in vulnerability 0 is in both "
-            "'Affected' and 'Under investigation' status groups."
-        )
-        in err.message
-        for err in result3.errors
-    )
-    temp_file3.unlink()
-
-    # Test case 4: Valid document (no contradictions)
-    doc4 = copy.deepcopy(base_csaf_doc)
-    temp_file4 = data_path / "temp_contradicting_product_status_valid.json"
-    with open(temp_file4, "w") as f:
-        json.dump(doc4, f, indent=2)
-    result4 = validator.validate(temp_file4)
-    assert result4.is_valid
-    temp_file4.unlink()
+    temp_file.unlink()
 
 
 @pytest.mark.skip(reason="Not implemented yet")
