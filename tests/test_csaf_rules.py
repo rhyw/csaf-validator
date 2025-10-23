@@ -1374,16 +1374,124 @@ def test_mandatory_invalid_cvss_computation(
 
             temp_file4.unlink()
 
+        @pytest.mark.parametrize(
+            "cwe, is_valid, error_message_part",
+            [
+                # Valid: Correct CWE ID and name
+                (
+                    {
+                        "id": "CWE-79",
+                        "name": "Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')",
+                    },
+                    True,
+                    None,
+                ),
+                # Invalid: Non-existent CWE ID
+                (
+                    {"id": "CWE-99999", "name": "Non-existent CWE"},
+                    False,
+                    "CWE ID 'CWE-99999' in vulnerability 0 does not exist.",
+                ),
+                # Invalid: Correct CWE ID, incorrect name
+                (
+                    {"id": "CWE-79", "name": "Improper Input Validation"},
+                    False,
+                    "CWE name for 'CWE-79' in vulnerability 0 is 'Improper Input Validation', but should be "
+                    "'Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')'.",
+                ),
+                # Invalid: Malformed CWE ID
+                (
+                    {"id": "CWE-ABC", "name": "Malformed ID"},
+                    False,
+                    "Invalid CWE ID format 'CWE-ABC' in vulnerability 0.",
+                ),
+            ],
+        )
+        def test_mandatory_cwe(
+            cwe, is_valid, error_message_part, data_path, csaf_schema_path
+        ):
+            """
+
+            6.1.11 CWE
+
+            It MUST be tested that given CWE exists and is valid.
+
+            """
+
+            base_csaf_doc = {
+                "document": {
+                    "csaf_version": "2.0",
+                    "publisher": {
+                        "category": "vendor",
+                        "name": "Example Company",
+                        "namespace": "https://example.com",
+                    },
+                    "title": "Test Advisory for CWE",
+                    "tracking": {
+                        "id": "TEST-2023-0010",
+                        "status": "final",
+                        "version": "1.0.0",
+                        "initial_release_date": "2023-01-01T00:00:00Z",
+                        "current_release_date": "2023-01-01T00:00:00Z",
+                        "revision_history": [
+                            {
+                                "date": "2023-01-01T00:00:00Z",
+                                "number": "1.0.0",
+                                "summary": "Initial release",
+                            }
+                        ],
+                    },
+                    "category": "csaf_base",
+                },
+                "vulnerabilities": [
+                    {
+                        "title": "Vulnerability with CWE",
+                        "cwe": cwe,
+                    }
+                ],
+            }
+
+            validator = Validator(csaf_schema_path)
+
+            doc = copy.deepcopy(base_csaf_doc)
+
+            temp_file = data_path / "temp_cwe_test.json"
+
+            with open(temp_file, "w") as f:
+
+                json.dump(doc, f, indent=2)
+
+            result = validator.validate(temp_file)
+
+            if is_valid:
+
+                assert result.is_valid
+
+            else:
+
+                assert not result.is_valid
+
+                assert any(
+                    err.rule == Rule.MANDATORY_CWE.name
+                    and error_message_part in err.message
+                    for err in result.errors
+                )
+
+            temp_file.unlink()
+
         @pytest.mark.skip(reason="Not implemented yet")
         def test_mandatory_multiple_definition_in_involvements():
             """
 
-                6.1.24 Multiple Definition in Involvements
+            6.1.24 Multiple Definition in Involvements
+
             It MUST be tested that items of the list of involvements do not contain the
+
             same `party` regardless of its `status` more than once at any `date`.
+
             """
 
-    pass
+            pass
 
 
 @pytest.mark.skip(reason="Not implemented yet")

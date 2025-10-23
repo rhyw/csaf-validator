@@ -53,6 +53,10 @@ class Rule(Enum):
         "6.1.10 Inconsistent CVSS",
         "It MUST be tested that the given CVSS properties do not contradict the CVSS vector.",
     )
+    MANDATORY_CWE = (
+        "6.1.11 CWE",
+        "It MUST be tested that given CWE exists and is valid.",
+    )
 
 
 class ValidationError:
@@ -767,4 +771,54 @@ def check_mandatory_inconsistent_cvss(doc):
                                 f"in vulnerability {vuln_index}, score {score_index}: {e}",
                             )
                         )
+    return errors
+
+
+def check_mandatory_cwe(doc):
+    """
+    6.1.11 CWE
+    It MUST be tested that given CWE exists and is valid.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    from cwe2.database import Database
+
+    db = Database()
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "cwe" in vuln:
+            cwe_data = vuln["cwe"]
+            cwe_id_str = cwe_data.get("id")
+            cwe_name = cwe_data.get("name")
+
+            if cwe_id_str:
+                try:
+                    cwe_id = int(cwe_id_str.replace("CWE-", ""))
+                    weakness = db.get(cwe_id)
+
+                    if weakness is None:
+                        errors.append(
+                            ValidationError(
+                                Rule.MANDATORY_CWE.name,
+                                f"CWE ID '{cwe_id_str}' in vulnerability {vuln_index} does not exist.",
+                            )
+                        )
+                    elif weakness.name != cwe_name:
+                        errors.append(
+                            ValidationError(
+                                Rule.MANDATORY_CWE.name,
+                                f"CWE name for '{cwe_id_str}' in vulnerability {vuln_index} "
+                                f"is '{cwe_name}', but should be '{weakness.name}'.",
+                            )
+                        )
+                except (ValueError, AttributeError):
+                    errors.append(
+                        ValidationError(
+                            Rule.MANDATORY_CWE.name,
+                            f"Invalid CWE ID format '{cwe_id_str}' in vulnerability {vuln_index}.",
+                        )
+                    )
+
     return errors
