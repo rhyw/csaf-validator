@@ -29,6 +29,16 @@ class Rule(Enum):
         "product_group, it MUST be tested that the product_group element with "
         "the matching group_id exists.",
     )
+    MANDATORY_MULTIPLE_DEFINITION_OF_PRODUCT_GROUP_ID = (
+        "6.1.5 Multiple Definition of Product Group ID",
+        "For each Product Group ID in Product Group elements, it MUST be tested "
+        "that the group_id was not already defined within the same document.",
+    )
+    MANDATORY_CONTRADICTING_PRODUCT_STATUS = (
+        "6.1.6 Contradicting Product Status",
+        "For each item in /vulnerabilities it MUST be tested that the same "
+        "Product ID is not member of contradicting product status groups.",
+    )
 
 
 class ValidationError:
@@ -347,5 +357,180 @@ def check_mandatory_missing_product_group_id_definition(doc):
                 "the product_tree.product_groups.",
             )
         )
+    return errors
+
+
+def check_mandatory_multiple_definition_of_product_group_id(doc):
+    """
+    6.1.5 Multiple Definition of Product Group ID
+    For each Product Group ID (type /$defs/product_group_id_t) Product Group
+    elements (/product_tree/product_groups[]) it MUST be tested that the
+    group_id was not already defined within the same document.
+    """
+    defined_group_ids = set()
+    errors = []
+
+    if "product_tree" not in doc or "product_groups" not in doc["product_tree"]:
+        return errors
+
+    for group in doc["product_tree"].get("product_groups", []):
+        if "group_id" in group:
+            group_id = group["group_id"]
+            print(
+                f"DEBUG: Processing group_id: {group_id}, Current defined_group_ids: {defined_group_ids}"
+            )
+            if group_id in defined_group_ids:
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_MULTIPLE_DEFINITION_OF_PRODUCT_GROUP_ID.name,
+                        f"Product Group ID '{group_id}' is defined multiple times "
+                        "in product_tree.product_groups.",
+                    )
+                )
+            defined_group_ids.add(group_id)
+    return errors
+
+
+def check_mandatory_contradicting_product_status(doc):
+    """
+    6.1.6 Contradicting Product Status
+    For each item in /vulnerabilities it MUST be tested that the same Product ID
+    is not member of contradicting product status groups. The sets formed by the
+    contradicting groups within one vulnerability item MUST be pairwise disjoint.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    contradiction_groups = {
+        "affected": [
+            "first_affected",
+            "known_affected",
+            "last_affected",
+        ],
+        "not_affected": ["known_not_affected"],
+        "fixed": ["first_fixed", "fixed"],
+        "under_investigation": ["under_investigation"],
+    }
+
+    for vuln_index, vuln in enumerate(doc["vulnerabilities"]):
+        if "product_status" not in vuln:
+            continue
+
+        product_status = vuln["product_status"]
+        product_id_sets = {
+            "affected": set(),
+            "not_affected": set(),
+            "fixed": set(),
+            "under_investigation": set(),
+        }
+
+        for group_type, status_keys in contradiction_groups.items():
+            for key in status_keys:
+                if key in product_status:
+                    product_id_sets[group_type].update(product_status[key])
+
+        # Check for pairwise disjoint sets
+        if product_id_sets["affected"].intersection(product_id_sets["not_affected"]):
+            common_ids = product_id_sets["affected"].intersection(
+                product_id_sets["not_affected"]
+            )
+            for pid in common_ids:
+                message = (
+                    f"Product ID '{pid}' in vulnerability {vuln_index} "
+                    "is in both 'Affected' and 'Not affected' status groups."
+                )
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name,
+                        message,
+                    )
+                )
+
+        if product_id_sets["affected"].intersection(product_id_sets["fixed"]):
+            common_ids = product_id_sets["affected"].intersection(
+                product_id_sets["fixed"]
+            )
+            for pid in common_ids:
+                message = (
+                    f"Product ID '{pid}' in vulnerability {vuln_index} is in both "
+                    "'Affected' and 'Fixed' status groups."
+                )
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name,
+                        message,
+                    )
+                )
+
+        if product_id_sets["affected"].intersection(
+            product_id_sets["under_investigation"]
+        ):
+            common_ids = product_id_sets["affected"].intersection(
+                product_id_sets["under_investigation"]
+            )
+            for pid in common_ids:
+                message = (
+                    f"Product ID '{pid}' in vulnerability {vuln_index} is in both "
+                    "'Affected' and 'Under investigation' status groups."
+                )
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name,
+                        message,
+                    )
+                )
+
+        if product_id_sets["not_affected"].intersection(product_id_sets["fixed"]):
+            common_ids = product_id_sets["not_affected"].intersection(
+                product_id_sets["fixed"]
+            )
+            for pid in common_ids:
+                message = (
+                    f"Product ID '{pid}' in vulnerability {vuln_index} is in both "
+                    "'Not affected' and 'Fixed' status groups."
+                )
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name,
+                        message,
+                    )
+                )
+
+        if product_id_sets["not_affected"].intersection(
+            product_id_sets["under_investigation"]
+        ):
+            common_ids = product_id_sets["not_affected"].intersection(
+                product_id_sets["under_investigation"]
+            )
+            for pid in common_ids:
+                message = (
+                    f"Product ID '{pid}' in vulnerability {vuln_index} is in both "
+                    "'Not affected' and 'Under investigation' status groups."
+                )
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name,
+                        message,
+                    )
+                )
+
+        if product_id_sets["fixed"].intersection(
+            product_id_sets["under_investigation"]
+        ):
+            common_ids = product_id_sets["fixed"].intersection(
+                product_id_sets["under_investigation"]
+            )
+            for pid in common_ids:
+                message = (
+                    f"Product ID '{pid}' in vulnerability {vuln_index} is in both "
+                    "'Fixed' and 'Under investigation' status groups."
+                )
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name,
+                        message,
+                    )
+                )
 
     return errors

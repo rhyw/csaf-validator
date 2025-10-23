@@ -421,6 +421,220 @@ def test_mandatory_circular_product_id_definition(data_path, csaf_schema_path):
     temp_file3.unlink()
 
 
+def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schema_path):
+    """
+    6.1.5 Multiple Definition of Product Group ID
+    For each Product Group ID (type /$defs/product_group_id_t) Product Group
+    elements (/product_tree/product_groups[]) it MUST be tested that the
+    group_id was not already defined within the same document.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0005",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
+                {"product_id": "CSAFPID-0003", "name": "Product C"},
+            ],
+            "product_groups": [
+                {
+                    "group_id": "CSAFGID-0001",
+                    "product_ids": ["CSAFPID-0001", "CSAFPID-0002"],
+                },
+            ],
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+
+    # Test case 1: Duplicate Product Group ID definition
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["product_tree"]["product_groups"].append(
+        {
+            "group_id": "CSAFGID-0001",  # Duplicate
+            "product_ids": ["CSAFPID-0001", "CSAFPID-0003"],
+        }
+    )
+    temp_file1 = data_path / "temp_multiple_product_group_id_duplicate.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert not result1.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_MULTIPLE_DEFINITION_OF_PRODUCT_GROUP_ID.name
+        and (
+            "Product Group ID 'CSAFGID-0001' is defined multiple times in "
+            "product_tree.product_groups."
+        )
+        in err.message
+        for err in result1.errors
+    )
+    temp_file1.unlink()
+
+    # Test case 2: Valid document (no duplicate Product Group IDs)
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["product_tree"]["product_groups"].append(
+        {
+            "group_id": "CSAFGID-0002",
+            "product_ids": ["CSAFPID-0001", "CSAFPID-0003"],
+        }
+    )
+    temp_file2 = data_path / "temp_multiple_product_group_id_valid.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert result2.is_valid
+    temp_file2.unlink()
+
+
+def test_mandatory_contradicting_product_status(data_path, csaf_schema_path):
+    """
+    6.1.6 Contradicting Product Status
+    For each item in /vulnerabilities it MUST be tested that the same Product ID
+    is not member of contradicting product status groups.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0006",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
+                {"product_id": "CSAFPID-0003", "name": "Product C"},
+                {"product_id": "CSAFPID-0004", "name": "Product D"},
+            ],
+        },
+        "vulnerabilities": [
+            {
+                "title": "Vulnerability 1",
+                "product_status": {
+                    "known_affected": ["CSAFPID-0001"],
+                    "known_not_affected": ["CSAFPID-0002"],
+                    "fixed": ["CSAFPID-0003"],
+                    "under_investigation": ["CSAFPID-0004"],
+                },
+            }
+        ],
+    }
+
+    validator = Validator(csaf_schema_path)
+
+    # Test case 1: Product in Known Affected and Known Not Affected
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["vulnerabilities"][0]["product_status"]["known_affected"].append(
+        "CSAFPID-0002"
+    )
+    temp_file1 = data_path / "temp_contradicting_product_status_1.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert not result1.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
+        and (
+            "Product ID 'CSAFPID-0002' in vulnerability 0 is in both "
+            "'Affected' and 'Not affected' status groups."
+        )
+        in err.message
+        for err in result1.errors
+    )
+    temp_file1.unlink()
+
+    # Test case 2: Product in First Affected and Fixed
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["vulnerabilities"][0]["product_status"]["first_affected"] = ["CSAFPID-0003"]
+    temp_file2 = data_path / "temp_contradicting_product_status_2.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert not result2.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
+        and (
+            "Product ID 'CSAFPID-0003' in vulnerability 0 is in both "
+            "'Affected' and 'Fixed' status groups."
+        )
+        in err.message
+        for err in result2.errors
+    )
+    temp_file2.unlink()
+
+    # Test case 3: Product in Under Investigation and Known Affected
+    doc3 = copy.deepcopy(base_csaf_doc)
+    doc3["vulnerabilities"][0]["product_status"]["under_investigation"].append(
+        "CSAFPID-0001"
+    )
+    temp_file3 = data_path / "temp_contradicting_product_status_3.json"
+    with open(temp_file3, "w") as f:
+        json.dump(doc3, f, indent=2)
+    result3 = validator.validate(temp_file3)
+    assert not result3.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_CONTRADICTING_PRODUCT_STATUS.name
+        and (
+            "Product ID 'CSAFPID-0001' in vulnerability 0 is in both "
+            "'Affected' and 'Under investigation' status groups."
+        )
+        in err.message
+        for err in result3.errors
+    )
+    temp_file3.unlink()
+
+    # Test case 4: Valid document (no contradictions)
+    doc4 = copy.deepcopy(base_csaf_doc)
+    temp_file4 = data_path / "temp_contradicting_product_status_valid.json"
+    with open(temp_file4, "w") as f:
+        json.dump(doc4, f, indent=2)
+    result4 = validator.validate(temp_file4)
+    assert result4.is_valid
+    temp_file4.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_definition_in_involvements():
     """
