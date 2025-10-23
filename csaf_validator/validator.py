@@ -12,6 +12,7 @@ from csaf_validator.rules import (
     check_mandatory_missing_product_id_definition,
     check_mandatory_multiple_definition_of_product_group_id,
     check_mandatory_multiple_product_id_definitions,
+    check_mandatory_multiple_scores_with_same_version_per_product,
 )
 
 
@@ -61,5 +62,8 @@ class Validator:
         errors.extend(check_mandatory_missing_product_group_id_definition(instance))
         errors.extend(check_mandatory_multiple_definition_of_product_group_id(instance))
         errors.extend(check_mandatory_contradicting_product_status(instance))
+        errors.extend(
+            check_mandatory_multiple_scores_with_same_version_per_product(instance)
+        )
 
         return ValidationResult(not bool(errors), errors)

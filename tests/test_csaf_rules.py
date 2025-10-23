@@ -658,6 +658,204 @@ def test_mandatory_contradicting_product_status(
     temp_file.unlink()
 
 
+
+@pytest.mark.parametrize(
+    "scores, is_valid, error_message_part",
+    [
+        # Valid: No duplicate scores for the same product and version
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                    },
+                },
+                {
+                    "products": ["CSAFPID-0002"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+                        "baseScore": 5.3,
+                        "baseSeverity": "MEDIUM",
+                    },
+                },
+            ],
+            True,
+            None,
+        ),
+        # Valid: Same product, different CVSS versions
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                    },
+                },
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+                        "baseScore": 5.0,
+                    },
+                },
+            ],
+            True,
+            None,
+        ),
+        # Invalid: Same product, two CVSSv3.1 scores
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                    },
+                },
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+                        "baseScore": 5.3,
+                        "baseSeverity": "MEDIUM",
+                    },
+                },
+            ],
+            False,
+            "Product ID 'CSAFPID-0001' has multiple scores for CVSS version 3.1",
+        ),
+        # Invalid: Same product, two CVSSv2 scores
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+                        "baseScore": 5.0,
+                    },
+                },
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v2": {
+                        "version": "2.0",
+                        "vectorString": "AV:N/AC:M/Au:N/C:P/I:N/A:N",
+                        "baseScore": 4.3,
+                    },
+                },
+            ],
+            False,
+            "Product ID 'CSAFPID-0001' has multiple scores for CVSS version 2.0",
+        ),
+        # Invalid: Product in a shared list with duplicate score version
+        (
+            [
+                {
+                    "products": ["CSAFPID-0001"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                        "baseScore": 7.5,
+                        "baseSeverity": "HIGH",
+                    },
+                },
+                {
+                    "products": ["CSAFPID-0001", "CSAFPID-0002"],
+                    "cvss_v3": {
+                        "version": "3.1",
+                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+                        "baseScore": 5.3,
+                        "baseSeverity": "MEDIUM",
+                    },
+                },
+            ],
+            False,
+            "Product ID 'CSAFPID-0001' has multiple scores for CVSS version 3.1",
+        ),
+    ],
+)
+def test_mandatory_multiple_scores_with_same_version_per_product(
+    scores, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.7 Multiple Scores with same Version per Product
+    For each item in /vulnerabilities it MUST be tested that the same Product ID
+    is not member of more than one CVSS-Vectors with the same version.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory",
+            "tracking": {
+                "id": "TEST-2023-0007",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
+            ],
+        },
+        "vulnerabilities": [
+            {
+                "title": "Vulnerability 1",
+                "scores": scores,
+            }
+        ],
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_multiple_scores.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert result.is_valid
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule
+            == Rule.MANDATORY_MULTIPLE_SCORES_WITH_SAME_VERSION_PER_PRODUCT.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_definition_in_involvements():
     """
