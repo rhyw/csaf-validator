@@ -42,3 +42,4 @@ rpds-py==0.28.0
     #   referencing
 typing-extensions==4.15.0
     # via referencing
+packageurl-python
