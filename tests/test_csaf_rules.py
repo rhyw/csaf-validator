@@ -1602,6 +1602,75 @@ def test_mandatory_invalid_cvss_computation(
             temp_file.unlink()
 
 
+def test_mandatory_purl(data_path, csaf_schema_path):
+    """
+    6.1.13 PURL
+    It MUST be tested that given PURL is valid.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for PURL",
+            "tracking": {
+                "id": "TEST-2023-0012",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {
+                    "product_id": "CSAFPID-0001",
+                    "name": "Product A",
+                    "product_identification_helper": {
+                        "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.0"
+                    },
+                },
+                {
+                    "product_id": "CSAFPID-0002",
+                    "name": "Product B",
+                    "product_identification_helper": {
+                        "purl": "pkg:maven/@1.3.4"  # Invalid PURL
+                    },
+                },
+            ]
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_purl_test.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    assert not result.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_PURL.name
+        and "Invalid PURL 'pkg:maven/@1.3.4'" in err.message
+        for err in result.errors
+    )
+
+    temp_file.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """

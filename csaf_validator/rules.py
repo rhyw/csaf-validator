@@ -61,6 +61,10 @@ class Rule(Enum):
         "6.1.12 Language",
         "For each element of type /$defs/language_t it MUST be tested that the language code is valid and exists.",
     )
+    MANDATORY_PURL = (
+        "6.1.13 PURL",
+        "It MUST be tested that given PURL is valid.",
+    )
 
 
 class ValidationError:
@@ -853,5 +857,65 @@ def check_mandatory_language(doc):
                         f"Language tag '{lang_tag}' in /document/{field} is not a valid language code.",
                     )
                 )
+
+    return errors
+
+
+def check_mandatory_purl(doc):
+    """
+    6.1.13 PURL
+    It MUST be tested that given PURL is valid.
+    """
+    errors = []
+    if "product_tree" not in doc:
+        return errors
+
+    from packageurl import PackageURL
+
+    def check_purl_in_product(product, path):
+        if (
+            "product_identification_helper" in product
+            and "purl" in product["product_identification_helper"]
+        ):
+            purl_str = product["product_identification_helper"]["purl"]
+            try:
+                PackageURL.from_string(purl_str)
+            except ValueError as e:
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_PURL.name,
+                        f"Invalid PURL '{purl_str}' at {path}: {e}",
+                    )
+                )
+
+    product_tree = doc["product_tree"]
+
+    # Check in full_product_names
+    for i, full_product_name in enumerate(product_tree.get("full_product_names", [])):
+        check_purl_in_product(
+            full_product_name, f"/product_tree/full_product_names[{i}]"
+        )
+
+    # Check in relationships
+    for i, relationship in enumerate(product_tree.get("relationships", [])):
+        if "full_product_name" in relationship:
+            check_purl_in_product(
+                relationship["full_product_name"],
+                f"/product_tree/relationships[{i}]/full_product_name",
+            )
+
+    # Check in branches (recursively)
+    def find_purls_in_branches(branches, path):
+        for i, branch in enumerate(branches):
+            branch_path = f"{path}[{i}]"
+            if "product" in branch:
+                check_purl_in_product(branch["product"], f"{branch_path}/product")
+            if "branches" in branch:
+                find_purls_in_branches(branch["branches"], f"{branch_path}/branches")
+
+    if "branches" in product_tree:
+        find_purls_in_branches(
+            product_tree.get("branches", []), "/product_tree/branches"
+        )
 
     return errors
