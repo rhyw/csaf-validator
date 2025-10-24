@@ -531,7 +531,7 @@ def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schem
         (
             {"known_not_affected": ["CSAFPID-0001"]},
             False,
-            "is in both 'Affected' and 'Not affected' status groups",
+            "is in both 'Affected' and 'Not Affected' status groups",
         ),
         # Invalid: Affected vs. Fixed
         (
@@ -543,7 +543,7 @@ def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schem
         (
             {"under_investigation": ["CSAFPID-0001"]},
             False,
-            "is in both 'Affected' and 'Under investigation' status groups",
+            "is in both 'Affected' and 'Under Investigation' status groups",
         ),
         # Invalid: Not affected vs. Fixed
         (
@@ -553,7 +553,7 @@ def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schem
                 "fixed": ["CSAFPID-0003"],
             },
             False,
-            "is in both 'Not affected' and 'Fixed' status groups",
+            "is in both 'Not Affected' and 'Fixed' status groups",
         ),
         # Invalid: Not affected vs. Under investigation
         (
@@ -563,7 +563,7 @@ def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schem
                 "under_investigation": ["CSAFPID-0004"],
             },
             False,
-            "is in both 'Not affected' and 'Under investigation' status groups",
+            "is in both 'Not Affected' and 'Under Investigation' status groups",
         ),
         # Invalid: Fixed vs. Under investigation
         (
@@ -573,7 +573,7 @@ def test_mandatory_multiple_definition_of_product_group_id(data_path, csaf_schem
                 "under_investigation": ["CSAFPID-0004"],
             },
             False,
-            "is in both 'Fixed' and 'Under investigation' status groups",
+            "is in both 'Fixed' and 'Under Investigation' status groups",
         ),
     ],
 )
