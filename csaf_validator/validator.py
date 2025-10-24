@@ -18,6 +18,7 @@ from csaf_validator.rules import (
     check_mandatory_multiple_product_id_definitions,
     check_mandatory_multiple_scores_with_same_version_per_product,
     check_mandatory_purl,
+    check_mandatory_sorted_revision_history,
 )
 
 
@@ -75,5 +76,6 @@ class Validator:
         errors.extend(check_mandatory_cwe(instance))
         errors.extend(check_mandatory_language(instance))
         errors.extend(check_mandatory_purl(instance))
+        errors.extend(check_mandatory_sorted_revision_history(instance))
 
         return ValidationResult(not bool(errors), errors)

@@ -1671,6 +1671,84 @@ def test_mandatory_purl(data_path, csaf_schema_path):
     temp_file.unlink()
 
 
+def test_mandatory_sorted_revision_history(data_path, csaf_schema_path):
+    """
+    6.1.14 Sorted Revision History
+    It MUST be tested that the value of `number` of items of the revision
+    history are sorted ascending when the items are sorted ascending by `date`.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Revision History",
+            "tracking": {
+                "id": "TEST-2023-0013",
+                "status": "final",
+                "version": "2",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-02T00:00:00Z",
+                "revision_history": [],
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+
+    # Test case 1: Valid sorted revision history
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["document"]["tracking"]["revision_history"] = [
+        {
+            "date": "2023-01-01T00:00:00Z",
+            "number": "1",
+            "summary": "Initial release",
+        },
+        {
+            "date": "2023-01-02T00:00:00Z",
+            "number": "2",
+            "summary": "Second release",
+        },
+    ]
+    temp_file1 = data_path / "temp_sorted_revision_history_valid.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert result1.is_valid
+    temp_file1.unlink()
+
+    # Test case 2: Invalid sorted revision history
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["document"]["tracking"]["revision_history"] = [
+        {
+            "date": "2023-01-01T00:00:00Z",
+            "number": "2",
+            "summary": "Initial release with wrong number",
+        },
+        {
+            "date": "2023-01-02T00:00:00Z",
+            "number": "1",
+            "summary": "Second release with wrong number",
+        },
+    ]
+    doc2["document"]["tracking"]["version"] = "1"
+    temp_file2 = data_path / "temp_sorted_revision_history_invalid.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert not result2.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_SORTED_REVISION_HISTORY.name
+        and "Revision history numbers are not sorted correctly" in err.message
+        for err in result2.errors
+    )
+    temp_file2.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """
