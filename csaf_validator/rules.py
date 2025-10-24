@@ -70,6 +70,11 @@ class Rule(Enum):
         "It MUST be tested that the value of `number` of items of the revision "
         "history are sorted ascending when the items are sorted ascending by `date`.",
     )
+    MANDATORY_TRANSLATOR = (
+        "6.1.15 Translator",
+        "It MUST be tested that `/document/source_lang` is present and set if "
+        "the value `translator` is used for `/document/publisher/category`.",
+    )
 
 
 class ValidationError:
@@ -877,5 +882,31 @@ def check_mandatory_sorted_revision_history(doc):
             )
             # Stop at the first error to avoid cascading failures
             break
+
+    return errors
+
+
+def check_mandatory_translator(doc):
+    """
+    6.1.15 Translator
+    It MUST be tested that `/document/source_lang` is present and set if
+    the value `translator` is used for `/document/publisher/category`.
+    """
+    errors = []
+    if "document" not in doc:
+        return errors
+
+    document = doc["document"]
+    if (
+        "publisher" in document
+        and document["publisher"].get("category") == "translator"
+    ):
+        if "source_lang" not in document:
+            errors.append(
+                ValidationError(
+                    Rule.MANDATORY_TRANSLATOR.name,
+                    "'/document/source_lang' must be present when publisher category is 'translator'.",
+                )
+            )
 
     return errors

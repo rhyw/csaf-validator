@@ -1749,6 +1749,78 @@ def test_mandatory_sorted_revision_history(data_path, csaf_schema_path):
     temp_file2.unlink()
 
 
+def test_mandatory_translator(data_path, csaf_schema_path):
+    """
+    6.1.15 Translator
+    It MUST be tested that `/document/source_lang` is present and set if
+    the value `translator` is used for `/document/publisher/category`.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Translator",
+            "tracking": {
+                "id": "TEST-2023-0014",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+
+    # Test case 1: Valid translator document
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["document"]["publisher"]["category"] = "translator"
+    doc1["document"]["source_lang"] = "en"
+    temp_file1 = data_path / "temp_translator_valid.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert result1.is_valid
+    temp_file1.unlink()
+
+    # Test case 2: Invalid translator document (missing source_lang)
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["document"]["publisher"]["category"] = "translator"
+    temp_file2 = data_path / "temp_translator_invalid.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert not result2.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_TRANSLATOR.name
+        and "'/document/source_lang' must be present" in err.message
+        for err in result2.errors
+    )
+    temp_file2.unlink()
+
+    # Test case 3: Non-translator document (should be valid)
+    doc3 = copy.deepcopy(base_csaf_doc)
+    doc3["document"]["publisher"]["category"] = "vendor"
+    temp_file3 = data_path / "temp_translator_not_applicable.json"
+    with open(temp_file3, "w") as f:
+        json.dump(doc3, f, indent=2)
+    result3 = validator.validate(temp_file3)
+    assert result3.is_valid
+    temp_file3.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """
