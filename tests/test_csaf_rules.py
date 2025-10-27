@@ -1821,6 +1821,183 @@ def test_mandatory_translator(data_path, csaf_schema_path):
     temp_file3.unlink()
 
 
+@pytest.mark.parametrize(
+    "version, revision_history, status, is_valid, error_message_part",
+    [
+        # Valid: Simple integer match
+        (
+            "2",
+            [
+                {"date": "2023-01-01T00:00:00Z", "number": "1", "summary": "Initial"},
+                {"date": "2023-01-02T00:00:00Z", "number": "2", "summary": "Second"},
+            ],
+            "final",
+            True,
+            None,
+        ),
+        # Valid: Simple semver match
+        (
+            "1.1.0",
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "1.1.0",
+                    "summary": "Update",
+                },
+            ],
+            "final",
+            True,
+            None,
+        ),
+        # Valid: Build metadata is ignored
+        (
+            "1.1.0+build123",
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "1.1.0",
+                    "summary": "Update",
+                },
+            ],
+            "final",
+            True,
+            None,
+        ),
+        # Valid: Draft status, pre-release part is ignored
+        (
+            "1.1.0-alpha",
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "1.1.0",
+                    "summary": "Update",
+                },
+            ],
+            "draft",
+            True,
+            None,
+        ),
+        # Invalid: Mismatch in version
+        (
+            "1",
+            [
+                {"date": "2023-01-01T00:00:00Z", "number": "1", "summary": "Initial"},
+                {"date": "2023-01-02T00:00:00Z", "number": "2", "summary": "Second"},
+            ],
+            "final",
+            False,
+            "Document version '1' does not match the number of the latest revision history item '2'",
+        ),
+        # Invalid: Mismatch with build metadata
+        (
+            "1.1.0+build123",
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "1.2.0",
+                    "summary": "Update",
+                },
+            ],
+            "final",
+            False,
+            "Document version '1.1.0+build123' does not match the number of the latest revision history item '1.2.0'",
+        ),
+        # Invalid: Final status, pre-release part is not ignored and causes mismatch
+        (
+            "1.1.0-alpha",
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "1.1.0",
+                    "summary": "Update",
+                },
+            ],
+            "final",
+            False,
+            "Document version '1.1.0-alpha' does not match the number of the latest revision history item '1.1.0'",
+        ),
+    ],
+)
+def test_mandatory_latest_document_version(
+    version,
+    revision_history,
+    status,
+    is_valid,
+    error_message_part,
+    data_path,
+    csaf_schema_path,
+):
+    """
+    6.1.16 Latest Document Version
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Latest Document Version",
+            "tracking": {
+                "id": "TEST-2023-0015",
+                "status": status,
+                "version": version,
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-02T00:00:00Z",
+                "revision_history": revision_history,
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_latest_document_version.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert result.is_valid
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_LATEST_DOCUMENT_VERSION.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """

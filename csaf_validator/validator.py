@@ -12,6 +12,7 @@ from csaf_validator.rules import (
     check_mandatory_inconsistent_cvss,
     check_mandatory_invalid_cvss_computation,
     check_mandatory_language,
+    check_mandatory_latest_document_version,
     check_mandatory_missing_product_group_id_definition,
     check_mandatory_missing_product_id_definition,
     check_mandatory_multiple_definition_of_product_group_id,
@@ -79,5 +80,6 @@ class Validator:
         errors.extend(check_mandatory_purl(instance))
         errors.extend(check_mandatory_sorted_revision_history(instance))
         errors.extend(check_mandatory_translator(instance))
+        errors.extend(check_mandatory_latest_document_version(instance))
 
         return ValidationResult(not bool(errors), errors)

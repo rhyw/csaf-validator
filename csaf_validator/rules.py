@@ -75,6 +75,13 @@ class Rule(Enum):
         "It MUST be tested that `/document/source_lang` is present and set if "
         "the value `translator` is used for `/document/publisher/category`.",
     )
+    MANDATORY_LATEST_DOCUMENT_VERSION = (
+        "6.1.16 Latest Document Version",
+        "It MUST be tested that document version has the same value as the the `number` "
+        "in the last item of Revision History when it is sorted ascending by `date`. "
+        "Build metadata is ignored in the comparison. Any pre-release part is also "
+        "ignored if the document status is `draft`.",
+    )
 
 
 class ValidationError:
@@ -908,5 +915,64 @@ def check_mandatory_translator(doc):
                     "'/document/source_lang' must be present when publisher category is 'translator'.",
                 )
             )
+
+    return errors
+
+
+def check_mandatory_latest_document_version(doc):
+    """
+    6.1.16 Latest Document Version
+    It MUST be tested that document version has the same value as the the `number`
+    in the last item of Revision History when it is sorted ascending by `date`.
+    Build metadata is ignored in the comparison. Any pre-release part is also
+    ignored if the document status is `draft`.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    if "revision_history" not in tracking or not tracking["revision_history"]:
+        return errors
+
+    doc_version = tracking.get("version")
+    if not doc_version:
+        return errors  # Should be caught by schema validation
+
+    revision_history = tracking["revision_history"]
+
+    try:
+        sorted_by_date = sorted(revision_history, key=lambda x: x["date"])
+    except (KeyError, TypeError):
+        return errors  # Should be caught by schema validation
+
+    latest_revision_number = sorted_by_date[-1].get("number")
+    if not latest_revision_number:
+        return errors  # Should be caught by schema validation
+
+    # Normalize versions for comparison
+    def normalize_version(v_str, is_draft=False):
+        # Remove build metadata
+        v_str = v_str.split("+")[0]
+        # If draft, remove pre-release part for comparison
+        if is_draft:
+            v_str = v_str.split("-")[0]
+        return v_str
+
+    is_draft = tracking.get("status") == "draft"
+
+    normalized_doc_version = normalize_version(str(doc_version), is_draft)
+    normalized_latest_revision = normalize_version(
+        str(latest_revision_number), is_draft
+    )
+
+    if normalized_doc_version != normalized_latest_revision:
+        errors.append(
+            ValidationError(
+                Rule.MANDATORY_LATEST_DOCUMENT_VERSION.name,
+                f"Document version '{doc_version}' does not match the number of the "
+                f"latest revision history item '{latest_revision_number}'.",
+            )
+        )
 
     return errors
