@@ -82,6 +82,11 @@ class Rule(Enum):
         "Build metadata is ignored in the comparison. Any pre-release part is also "
         "ignored if the document status is `draft`.",
     )
+    MANDATORY_MULTIPLE_DEFINITION_IN_REVISION_HISTORY = (
+        "6.1.22 Multiple Definition in Revision History",
+        "It MUST be tested that items of the revision history do not contain "
+        "the same version number.",
+    )
     MANDATORY_NON_DRAFT_DOCUMENT_VERSION = (
         "6.1.20 Non-draft Document Version",
         "It MUST be tested that document version does not contain a pre-release "
@@ -982,6 +987,39 @@ def check_mandatory_latest_document_version(doc):
                 Rule.MANDATORY_LATEST_DOCUMENT_VERSION.name,
                 f"Document version '{doc_version}' does not match the number of the "
                 f"latest revision history item '{latest_revision_number}'.",
+            )
+        )
+
+    return errors
+
+
+def check_mandatory_multiple_definition_in_revision_history(doc):
+    """
+    6.1.22 Multiple Definition in Revision History
+    It MUST be tested that items of the revision history do not contain the
+    same version number.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    if "revision_history" not in tracking:
+        return errors
+
+    numbers = [str(rev.get("number")) for rev in tracking["revision_history"]]
+    seen = set()
+    duplicates = set()
+    for num in numbers:
+        if num in seen:
+            duplicates.add(num)
+        seen.add(num)
+
+    for dup in duplicates:
+        errors.append(
+            ValidationError(
+                Rule.MANDATORY_MULTIPLE_DEFINITION_IN_REVISION_HISTORY.name,
+                f"Revision history contains duplicate version number '{dup}'.",
             )
         )
 

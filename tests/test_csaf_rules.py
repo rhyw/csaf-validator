@@ -2174,6 +2174,97 @@ def test_mandatory_non_draft_document_version(
     temp_file.unlink()
 
 
+@pytest.mark.parametrize(
+    "revision_history, is_valid, error_message_part",
+    [
+        # Valid: No duplicate version numbers
+        (
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "2.0.0",
+                    "summary": "Second",
+                },
+            ],
+            True,
+            None,
+        ),
+        # Invalid: Duplicate version number
+        (
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Duplicate",
+                },
+            ],
+            False,
+            "Revision history contains duplicate version number '1.0.0'",
+        ),
+    ],
+)
+def test_mandatory_multiple_definition_in_revision_history(
+    revision_history, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.22 Multiple Definition in Revision History
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Duplicate Revision History",
+            "tracking": {
+                "id": "TEST-2023-0021",
+                "status": "final",
+                "version": "2.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-02T00:00:00Z",
+                "revision_history": revision_history,
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_duplicate_revision_history.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert not any(
+            err.rule == Rule.MANDATORY_MULTIPLE_DEFINITION_IN_REVISION_HISTORY.name
+            for err in result.errors
+        )
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_MULTIPLE_DEFINITION_IN_REVISION_HISTORY.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """
