@@ -103,6 +103,11 @@ class Rule(Enum):
         "`product_version` it MUST be tested that the value of `name` does not "
         "contain a version range.",
     )
+    MANDATORY_FLAG_WITHOUT_PRODUCT_REFERENCE = (
+        "6.1.32 Flag without Product Reference",
+        "For each item in /vulnerabilities[]/flags it MUST be tested that it "
+        "includes at least one of the elements group_ids or product_ids.",
+    )
     MANDATORY_NON_DRAFT_DOCUMENT_VERSION = (
         "6.1.20 Non-draft Document Version",
         "It MUST be tested that document version does not contain a pre-release "
@@ -1161,6 +1166,33 @@ def check_mandatory_version_range_in_product_version(doc):
 
     if "branches" in doc["product_tree"]:
         find_in_branches(doc["product_tree"]["branches"], "/product_tree/branches")
+
+    return errors
+
+
+def check_mandatory_flag_without_product_reference(doc):
+    """
+    6.1.32 Flag without Product Reference
+    For each item in /vulnerabilities[]/flags it MUST be tested that it
+    includes at least one of the elements group_ids or product_ids.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "flags" not in vuln:
+            continue
+
+        for i, flag in enumerate(vuln.get("flags", [])):
+            if not flag.get("group_ids") and not flag.get("product_ids"):
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_FLAG_WITHOUT_PRODUCT_REFERENCE.name,
+                        f"Flag at index {i} in vulnerability {vuln_index} "
+                        "is missing both 'group_ids' and 'product_ids'.",
+                    )
+                )
 
     return errors
 

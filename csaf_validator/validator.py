@@ -9,6 +9,7 @@ from csaf_validator.rules import (
     check_mandatory_circular_definition_of_product_id,
     check_mandatory_contradicting_product_status,
     check_mandatory_cwe,
+    check_mandatory_flag_without_product_reference,
     check_mandatory_inconsistent_cvss,
     check_mandatory_invalid_cvss_computation,
     check_mandatory_language,
@@ -93,5 +94,6 @@ class Validator:
         errors.extend(check_mandatory_multiple_use_of_same_cve(instance))
         errors.extend(check_mandatory_prohibited_document_category_name(instance))
         errors.extend(check_mandatory_version_range_in_product_version(instance))
+        errors.extend(check_mandatory_flag_without_product_reference(instance))
 
         return ValidationResult(not bool(errors), errors)

@@ -2527,6 +2527,97 @@ def test_mandatory_prohibited_document_category_name(
 
         temp_file.unlink()
 
+    @pytest.mark.parametrize(
+        "flags, is_valid, error_message_part",
+        [
+            # Valid: product_ids is present
+            (
+                [{"label": "component_not_present", "product_ids": ["CSAFPID-0001"]}],
+                True,
+                None,
+            ),
+            # Valid: group_ids is present
+            (
+                [{"label": "component_not_present", "group_ids": ["CSAFGID-0001"]}],
+                True,
+                None,
+            ),
+            # Invalid: Missing both product_ids and group_ids
+            (
+                [{"label": "component_not_present"}],
+                False,
+                "missing both 'group_ids' and 'product_ids'",
+            ),
+        ],
+    )
+    def test_mandatory_flag_without_product_reference(
+        flags, is_valid, error_message_part, data_path, csaf_schema_path
+    ):
+        """
+
+        6.1.32 Flag without Product Reference
+
+        """
+
+        base_csaf_doc = {
+            "document": {
+                "csaf_version": "2.0",
+                "publisher": {
+                    "category": "vendor",
+                    "name": "Example Company",
+                    "namespace": "https://example.com",
+                },
+                "title": "Test Advisory for Flag without Product Reference",
+                "tracking": {
+                    "id": "TEST-2023-0030",
+                    "status": "final",
+                    "version": "1.0.0",
+                    "initial_release_date": "2023-01-01T00:00:00Z",
+                    "current_release_date": "2023-01-01T00:00:00Z",
+                    "revision_history": [
+                        {
+                            "date": "2023-01-01T00:00:00Z",
+                            "number": "1.0.0",
+                            "summary": "Initial release",
+                        }
+                    ],
+                },
+                "category": "csaf_base",
+            },
+            "vulnerabilities": [{"title": "Vulnerability 1", "flags": flags}],
+        }
+
+        validator = Validator(csaf_schema_path)
+
+        doc = copy.deepcopy(base_csaf_doc)
+
+        temp_file = data_path / "temp_flag_without_product_reference.json"
+
+        with open(temp_file, "w") as f:
+
+            json.dump(doc, f, indent=2)
+
+        result = validator.validate(temp_file)
+
+        if is_valid:
+
+            assert not any(
+                err.rule == Rule.MANDATORY_FLAG_WITHOUT_PRODUCT_REFERENCE.name
+                for err in result.errors
+            )
+
+        else:
+
+            assert not result.is_valid
+
+            assert any(
+                err.rule == Rule.MANDATORY_FLAG_WITHOUT_PRODUCT_REFERENCE.name
+                and error_message_part in err.message
+                for err in result.errors
+            )
+
+        temp_file.unlink()
+
     ##################################################################
 
     #  6.2 Optional Tests
