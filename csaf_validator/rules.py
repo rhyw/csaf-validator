@@ -97,6 +97,12 @@ class Rule(Enum):
         "insensitive) name (without the prefix `csaf_`) or value of any other "
         "profile than CSAF Base.",
     )
+    MANDATORY_VERSION_RANGE_IN_PRODUCT_VERSION = (
+        "6.1.31 Version Range in Product Version",
+        "For each element of type `/$defs/branches_t` with `category` of "
+        "`product_version` it MUST be tested that the value of `name` does not "
+        "contain a version range.",
+    )
     MANDATORY_NON_DRAFT_DOCUMENT_VERSION = (
         "6.1.20 Non-draft Document Version",
         "It MUST be tested that document version does not contain a pre-release "
@@ -1109,6 +1115,52 @@ def check_mandatory_prohibited_document_category_name(doc):
                 )
             )
             break
+
+    return errors
+
+
+def check_mandatory_version_range_in_product_version(doc):
+    """
+    6.1.31 Version Range in Product Version
+    For each element of type `/$defs/branches_t` with `category` of
+    `product_version` it MUST be tested that the value of `name` does not
+    contain a version range.
+    """
+    errors = []
+    if "product_tree" not in doc:
+        return errors
+
+    def find_in_branches(branches, path):
+        for i, branch in enumerate(branches):
+            branch_path = f"{path}[{i}]"
+            if branch.get("category") == "product_version":
+                name = branch.get("name", "").lower()
+                prohibited_strings = [
+                    "<",
+                    "<=",
+                    ">",
+                    ">=",
+                    "after",
+                    "all",
+                    "before",
+                    "earlier",
+                    "later",
+                    "prior",
+                    "versions",
+                ]
+                if any(prohibited in name for prohibited in prohibited_strings):
+                    errors.append(
+                        ValidationError(
+                            Rule.MANDATORY_VERSION_RANGE_IN_PRODUCT_VERSION.name,
+                            f"Branch at {branch_path} with category 'product_version' "
+                            f"contains a version range in 'name': '{branch.get('name')}'.",
+                        )
+                    )
+            if "branches" in branch:
+                find_in_branches(branch["branches"], f"{branch_path}/branches")
+
+    if "branches" in doc["product_tree"]:
+        find_in_branches(doc["product_tree"]["branches"], "/product_tree/branches")
 
     return errors
 

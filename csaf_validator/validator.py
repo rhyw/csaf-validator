@@ -26,6 +26,7 @@ from csaf_validator.rules import (
     check_mandatory_released_revision_history,
     check_mandatory_sorted_revision_history,
     check_mandatory_translator,
+    check_mandatory_version_range_in_product_version,
 )
 
 
@@ -91,5 +92,6 @@ class Validator:
         errors.extend(check_mandatory_multiple_definition_in_revision_history(instance))
         errors.extend(check_mandatory_multiple_use_of_same_cve(instance))
         errors.extend(check_mandatory_prohibited_document_category_name(instance))
+        errors.extend(check_mandatory_version_range_in_product_version(instance))
 
         return ValidationResult(not bool(errors), errors)
