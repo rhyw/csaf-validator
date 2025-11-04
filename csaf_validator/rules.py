@@ -82,6 +82,11 @@ class Rule(Enum):
         "Build metadata is ignored in the comparison. Any pre-release part is also "
         "ignored if the document status is `draft`.",
     )
+    MANDATORY_NON_DRAFT_DOCUMENT_VERSION = (
+        "6.1.20 Non-draft Document Version",
+        "It MUST be tested that document version does not contain a pre-release "
+        "part if the document status is `final` or `interim`.",
+    )
     MANDATORY_RELEASED_REVISION_HISTORY = (
         "6.1.18 Released Revision History",
         "It MUST be tested that no item of the revision history has a `number` "
@@ -979,6 +984,37 @@ def check_mandatory_latest_document_version(doc):
                 f"latest revision history item '{latest_revision_number}'.",
             )
         )
+
+    return errors
+
+
+def check_mandatory_non_draft_document_version(doc):
+    """
+    6.1.20 Non-draft Document Version
+    It MUST be tested that document version does not contain a pre-release
+    part if the document status is `final` or `interim`.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    doc_status = tracking.get("status")
+    doc_version = tracking.get("version")
+
+    if not doc_status or not doc_version:
+        return errors  # Should be caught by schema validation
+
+    if doc_status in ("final", "interim"):
+        doc_version_str = str(doc_version)
+        if "-" in doc_version_str:
+            errors.append(
+                ValidationError(
+                    Rule.MANDATORY_NON_DRAFT_DOCUMENT_VERSION.name,
+                    f"Document version '{doc_version}' contains a pre-release part, "
+                    f"which is not allowed when status is '{doc_status}'.",
+                )
+            )
 
     return errors
 

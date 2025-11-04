@@ -2091,6 +2091,89 @@ def test_mandatory_released_revision_history(
     temp_file.unlink()
 
 
+@pytest.mark.parametrize(
+    "version, status, is_valid, error_message_part",
+    [
+        # Valid: Final status with no pre-release version
+        ("1.0.0", "final", True, None),
+        # Valid: Interim status with no pre-release version
+        ("2.0.0", "interim", True, None),
+        # Valid: Draft status with pre-release version
+        ("1.0.0-alpha", "draft", True, None),
+        # Invalid: Final status with pre-release version
+        (
+            "1.0.0-alpha",
+            "final",
+            False,
+            "Document version '1.0.0-alpha' contains a pre-release part",
+        ),
+        # Invalid: Interim status with pre-release version
+        (
+            "2.0.0-rc1",
+            "interim",
+            False,
+            "Document version '2.0.0-rc1' contains a pre-release part",
+        ),
+    ],
+)
+def test_mandatory_non_draft_document_version(
+    version, status, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.20 Non-draft Document Version
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Non-draft Document Version",
+            "tracking": {
+                "id": "TEST-2023-0019",
+                "status": status,
+                "version": version,
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_non_draft_document_version.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert not any(
+            err.rule == Rule.MANDATORY_NON_DRAFT_DOCUMENT_VERSION.name
+            for err in result.errors
+        )
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_NON_DRAFT_DOCUMENT_VERSION.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """
