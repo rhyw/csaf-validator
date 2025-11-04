@@ -91,6 +91,12 @@ class Rule(Enum):
         "6.1.23 Multiple Use of Same CVE",
         "It MUST be tested that a CVE is not used in multiple vulnerability items.",
     )
+    MANDATORY_PROHIBITED_DOCUMENT_CATEGORY_NAME = (
+        "6.2.26 Prohibited Document Category Name",
+        "It MUST be tested that the document category is not equal to the (case "
+        "insensitive) name (without the prefix `csaf_`) or value of any other "
+        "profile than CSAF Base.",
+    )
     MANDATORY_NON_DRAFT_DOCUMENT_VERSION = (
         "6.1.20 Non-draft Document Version",
         "It MUST be tested that document version does not contain a pre-release "
@@ -1054,6 +1060,55 @@ def check_mandatory_multiple_use_of_same_cve(doc):
                 f"CVE '{dup}' is used in multiple vulnerability items.",
             )
         )
+
+    return errors
+
+
+def check_mandatory_prohibited_document_category_name(doc):
+    """
+    6.1.26 Prohibited Document Category Name
+    It MUST be tested that the document category is not equal to the (case
+    insensitive) name (without the prefix `csaf_`) or value of any other
+    profile than "CSAF Base".
+    """
+    errors = []
+    if "document" not in doc:
+        return errors
+
+    category = doc["document"].get("category")
+    if not category:
+        return errors
+
+    # This test only applies to CSAF documents with the profile "CSAF Base"
+    if category in [
+        "csaf_base",
+        "csaf_security_incident_response",
+        "csaf_informational_advisory",
+        "csaf_security_advisory",
+        "csaf_vex",
+    ]:
+        return errors
+
+    prohibited_names = [
+        "securityincidentresponse",
+        "informationaladvisory",
+        "securityadvisory",
+        "vex",
+    ]
+
+    normalized_category = (
+        category.lower().replace("-", "").replace("_", "").replace(" ", "")
+    )
+
+    for prohibited in prohibited_names:
+        if prohibited == normalized_category:
+            errors.append(
+                ValidationError(
+                    Rule.MANDATORY_PROHIBITED_DOCUMENT_CATEGORY_NAME.name,
+                    f"Document category '{category}' is a prohibited name for a CSAF Base profile document.",
+                )
+            )
+            break
 
     return errors
 

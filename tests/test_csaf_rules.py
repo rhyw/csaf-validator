@@ -2357,14 +2357,75 @@ def test_mandatory_multiple_use_of_same_hash_algorithm():
     pass
 
 
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_prohibited_document_category_name():
+@pytest.mark.parametrize(
+    "category, is_valid, error_message_part",
+    [
+        # Valid: Standard CSAF Base category
+        ("csaf_base", True, None),
+        # Valid: Custom category that doesn't conflict
+        ("Example Company Security Notice", True, None),
+        # Invalid: Conflicts with a standard profile name
+        ("Security Advisory", False, "prohibited name"),
+        ("informational-advisory", False, "prohibited name"),
+        ("VEX", False, "prohibited name"),
+    ],
+)
+def test_mandatory_prohibited_document_category_name(
+    category, is_valid, error_message_part, data_path, csaf_schema_path
+):
     """
     6.1.26 Prohibited Document Category Name
-    It MUST be tested that the document category is not equal to the (case
-    insensitive) name of any other profile than "CSAF Base".
     """
-    pass
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Prohibited Category",
+            "tracking": {
+                "id": "TEST-2023-0025",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": category,
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_prohibited_category.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert not any(
+            err.rule == Rule.MANDATORY_PROHIBITED_DOCUMENT_CATEGORY_NAME.name
+            for err in result.errors
+        )
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_PROHIBITED_DOCUMENT_CATEGORY_NAME.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
 
 
 ##################################################################

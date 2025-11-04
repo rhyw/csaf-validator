@@ -21,6 +21,7 @@ from csaf_validator.rules import (
     check_mandatory_multiple_scores_with_same_version_per_product,
     check_mandatory_multiple_use_of_same_cve,
     check_mandatory_non_draft_document_version,
+    check_mandatory_prohibited_document_category_name,
     check_mandatory_purl,
     check_mandatory_released_revision_history,
     check_mandatory_sorted_revision_history,
@@ -89,5 +90,6 @@ class Validator:
         errors.extend(check_mandatory_released_revision_history(instance))
         errors.extend(check_mandatory_multiple_definition_in_revision_history(instance))
         errors.extend(check_mandatory_multiple_use_of_same_cve(instance))
+        errors.extend(check_mandatory_prohibited_document_category_name(instance))
 
         return ValidationResult(not bool(errors), errors)
