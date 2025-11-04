@@ -87,6 +87,10 @@ class Rule(Enum):
         "It MUST be tested that items of the revision history do not contain "
         "the same version number.",
     )
+    MANDATORY_MULTIPLE_USE_OF_SAME_CVE = (
+        "6.1.23 Multiple Use of Same CVE",
+        "It MUST be tested that a CVE is not used in multiple vulnerability items.",
+    )
     MANDATORY_NON_DRAFT_DOCUMENT_VERSION = (
         "6.1.20 Non-draft Document Version",
         "It MUST be tested that document version does not contain a pre-release "
@@ -1020,6 +1024,34 @@ def check_mandatory_multiple_definition_in_revision_history(doc):
             ValidationError(
                 Rule.MANDATORY_MULTIPLE_DEFINITION_IN_REVISION_HISTORY.name,
                 f"Revision history contains duplicate version number '{dup}'.",
+            )
+        )
+
+    return errors
+
+
+def check_mandatory_multiple_use_of_same_cve(doc):
+    """
+    6.1.23 Multiple Use of Same CVE
+    It MUST be tested that a CVE is not used in multiple vulnerability items.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    cve_list = [vuln.get("cve") for vuln in doc["vulnerabilities"] if vuln.get("cve")]
+    seen = set()
+    duplicates = set()
+    for cve in cve_list:
+        if cve in seen:
+            duplicates.add(cve)
+        seen.add(cve)
+
+    for dup in duplicates:
+        errors.append(
+            ValidationError(
+                Rule.MANDATORY_MULTIPLE_USE_OF_SAME_CVE.name,
+                f"CVE '{dup}' is used in multiple vulnerability items.",
             )
         )
 

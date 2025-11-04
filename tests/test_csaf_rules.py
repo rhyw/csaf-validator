@@ -2265,6 +2265,88 @@ def test_mandatory_multiple_definition_in_revision_history(
     temp_file.unlink()
 
 
+@pytest.mark.parametrize(
+    "vulnerabilities, is_valid, error_message_part",
+    [
+        # Valid: No duplicate CVEs
+        (
+            [{"cve": "CVE-2021-44228"}, {"cve": "CVE-2021-45046"}],
+            True,
+            None,
+        ),
+        # Invalid: Duplicate CVE
+        (
+            [{"cve": "CVE-2021-44228"}, {"cve": "CVE-2021-44228"}],
+            False,
+            "CVE 'CVE-2021-44228' is used in multiple vulnerability items.",
+        ),
+        # Valid: One vulnerability with a CVE, one without
+        (
+            [{"cve": "CVE-2021-44228"}, {"title": "Some other vulnerability"}],
+            True,
+            None,
+        ),
+    ],
+)
+def test_mandatory_multiple_use_of_same_cve(
+    vulnerabilities, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.23 Multiple Use of Same CVE
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Multiple CVE Use",
+            "tracking": {
+                "id": "TEST-2023-0022",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "vulnerabilities": vulnerabilities,
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_multiple_cve_use.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert not any(
+            err.rule == Rule.MANDATORY_MULTIPLE_USE_OF_SAME_CVE.name
+            for err in result.errors
+        )
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_MULTIPLE_USE_OF_SAME_CVE.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
+
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_mandatory_multiple_use_of_same_hash_algorithm():
     """
