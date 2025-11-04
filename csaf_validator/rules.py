@@ -82,6 +82,11 @@ class Rule(Enum):
         "Build metadata is ignored in the comparison. Any pre-release part is also "
         "ignored if the document status is `draft`.",
     )
+    MANDATORY_RELEASED_REVISION_HISTORY = (
+        "6.1.18 Released Revision History",
+        "It MUST be tested that no item of the revision history has a `number` "
+        "of `0` or `0.y.z` when the document status is `final` or `interim`.",
+    )
 
 
 class ValidationError:
@@ -974,5 +979,35 @@ def check_mandatory_latest_document_version(doc):
                 f"latest revision history item '{latest_revision_number}'.",
             )
         )
+
+    return errors
+
+
+def check_mandatory_released_revision_history(doc):
+    """
+    6.1.18 Released Revision History
+    It MUST be tested that no item of the revision history has a `number` of `0`
+    or `0.y.z` when the document status is `final` or `interim`.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    doc_status = tracking.get("status")
+
+    if doc_status in ("final", "interim"):
+        for revision in tracking.get("revision_history", []):
+            revision_number = revision.get("number")
+            if revision_number:
+                revision_number_str = str(revision_number)
+                if revision_number_str == "0" or revision_number_str.startswith("0."):
+                    errors.append(
+                        ValidationError(
+                            Rule.MANDATORY_RELEASED_REVISION_HISTORY.name,
+                            f"Revision history item with number '{revision_number}' is not allowed "
+                            f"when document status is '{doc_status}'.",
+                        )
+                    )
 
     return errors
