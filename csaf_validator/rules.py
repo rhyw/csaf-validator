@@ -118,6 +118,11 @@ class Rule(Enum):
         "It MUST be tested that no item of the revision history has a `number` "
         "of `0` or `0.y.z` when the document status is `final` or `interim`.",
     )
+    MANDATORY_REVISION_HISTORY_ENTRIES_FOR_PRE_RELEASE_VERSIONS = (
+        "6.1.19 Revision History Entries for Pre-release Versions",
+        "It MUST be tested that no item of the revision history has a `number` "
+        "which includes pre-release information.",
+    )
 
 
 class ValidationError:
@@ -1254,5 +1259,34 @@ def check_mandatory_released_revision_history(doc):
                             f"when document status is '{doc_status}'.",
                         )
                     )
+
+    return errors
+
+
+def check_mandatory_revision_history_entries_for_pre_release_versions(doc):
+    """
+    6.1.19 Revision History Entries for Pre-release Versions
+    It MUST be tested that no item of the revision history has a `number`
+    which includes pre-release information.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    if "revision_history" not in tracking:
+        return errors
+
+    for revision in tracking.get("revision_history", []):
+        revision_number = revision.get("number")
+        if revision_number:
+            revision_number_str = str(revision_number)
+            if "-" in revision_number_str:
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_REVISION_HISTORY_ENTRIES_FOR_PRE_RELEASE_VERSIONS.name,
+                        f"Revision history item with number '{revision_number}' contains pre-release information.",
+                    )
+                )
 
     return errors

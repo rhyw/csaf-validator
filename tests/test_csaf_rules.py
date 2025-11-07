@@ -654,7 +654,6 @@ def test_mandatory_contradicting_product_status(
             and error_message_part in err.message
             for err in result.errors
         )
-
     temp_file.unlink()
 
 
@@ -851,7 +850,6 @@ def test_mandatory_multiple_scores_with_same_version_per_product(
             and error_message_part in err.message
             for err in result.errors
         )
-
     temp_file.unlink()
 
 
@@ -1002,8 +1000,7 @@ def test_mandatory_invalid_cvss_computation(
             and error_message_part in err.message
             for err in result.errors
         )
-
-        temp_file.unlink()
+    temp_file.unlink()
 
     @pytest.mark.parametrize(
         "scores, is_valid, error_message_part",
@@ -1093,13 +1090,7 @@ def test_mandatory_invalid_cvss_computation(
     ):
         """
 
-
-
-
-
         6.1.9 Invalid CVSS computation
-
-
 
 
 
@@ -1107,11 +1098,7 @@ def test_mandatory_invalid_cvss_computation(
 
 
 
-
-
         correctly according to the definition.
-
-
 
 
 
@@ -1181,14 +1168,18 @@ def test_mandatory_invalid_cvss_computation(
                 for err in result.errors
             )
 
-            temp_file.unlink()
+        temp_file.unlink()
 
         def test_mandatory_inconsistent_cvss(data_path, csaf_schema_path):
             """
 
             6.1.10 Inconsistent CVSS
 
+
+
             It MUST be tested that the given CVSS properties do not contradict the CVSS vector.
+
+
 
             """
 
@@ -1414,7 +1405,11 @@ def test_mandatory_invalid_cvss_computation(
 
             6.1.11 CWE
 
+
+
             It MUST be tested that given CWE exists and is valid.
+
+
 
             """
 
@@ -1485,9 +1480,15 @@ def test_mandatory_invalid_cvss_computation(
 
             6.1.24 Multiple Definition in Involvements
 
+
+
             It MUST be tested that items of the list of involvements do not contain the
 
+
+
             same `party` regardless of its `status` more than once at any `date`.
+
+
 
             """
 
@@ -1532,9 +1533,15 @@ def test_mandatory_invalid_cvss_computation(
 
             6.1.12 Language
 
+
+
             For each element of type /$defs/language_t it MUST be tested that the
 
+
+
             language code is valid and exists.
+
+
 
             """
 
@@ -1994,55 +2001,14 @@ def test_mandatory_latest_document_version(
             and error_message_part in err.message
             for err in result.errors
         )
-
     temp_file.unlink()
 
 
-@pytest.mark.parametrize(
-    "revision_history, status, is_valid, error_message_part",
-    [
-        # Valid: Final status with valid revision history
-        (
-            [{"date": "2023-01-01T00:00:00Z", "number": "1.0.0", "summary": "Initial"}],
-            "final",
-            True,
-            None,
-        ),
-        # Valid: Interim status with valid revision history
-        (
-            [{"date": "2023-01-01T00:00:00Z", "number": "1.0.0", "summary": "Initial"}],
-            "interim",
-            True,
-            None,
-        ),
-        # Valid: Draft status with pre-release revision history
-        (
-            [{"date": "2023-01-01T00:00:00Z", "number": "0.1.0", "summary": "Draft"}],
-            "draft",
-            True,
-            None,
-        ),
-        # Invalid: Final status with '0' revision
-        (
-            [{"date": "2023-01-01T00:00:00Z", "number": "0", "summary": "Draft"}],
-            "final",
-            False,
-            "Revision history item with number '0' is not allowed",
-        ),
-        # Invalid: Interim status with '0.y.z' revision
-        (
-            [{"date": "2023-01-01T00:00:00Z", "number": "0.1.0", "summary": "Draft"}],
-            "interim",
-            False,
-            "Revision history item with number '0.1.0' is not allowed",
-        ),
-    ],
-)
-def test_mandatory_released_revision_history(
-    revision_history, status, is_valid, error_message_part, data_path, csaf_schema_path
-):
+def test_mandatory_released_revision_history(data_path, csaf_schema_path):
     """
     6.1.18 Released Revision History
+    It MUST be tested that no item of the revision history has a `number` of `0`
+    or `0.y.z` when the document status is `final` or `interim`.
     """
     base_csaf_doc = {
         "document": {
@@ -2055,10 +2021,140 @@ def test_mandatory_released_revision_history(
             "title": "Test Advisory for Released Revision History",
             "tracking": {
                 "id": "TEST-2023-0017",
-                "status": status,
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-02T00:00:00Z",
+                "revision_history": [],
+                "status": "final",
+                "version": "1.0.0",
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+
+    # Test case 1: Invalid - status 'final' with revision '0'
+    doc1 = copy.deepcopy(base_csaf_doc)
+    doc1["document"]["tracking"]["revision_history"] = [
+        {"date": "2023-01-01T00:00:00Z", "number": "0", "summary": "Draft"},
+        {"date": "2023-01-02T00:00:00Z", "number": "1.0.0", "summary": "Final"},
+    ]
+    doc1["document"]["tracking"]["status"] = "final"
+    temp_file1 = data_path / "temp_released_rev_history_final_invalid.json"
+    with open(temp_file1, "w") as f:
+        json.dump(doc1, f, indent=2)
+    result1 = validator.validate(temp_file1)
+    assert not result1.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_RELEASED_REVISION_HISTORY.name
+        and "not allowed when document status is 'final'" in err.message
+        for err in result1.errors
+    )
+    temp_file1.unlink()
+
+    # Test case 2: Invalid - status 'interim' with revision '0.1.0'
+    doc2 = copy.deepcopy(base_csaf_doc)
+    doc2["document"]["tracking"]["revision_history"] = [
+        {"date": "2023-01-01T00:00:00Z", "number": "0.1.0", "summary": "Draft"},
+        {"date": "2023-01-02T00:00:00Z", "number": "1.0.0", "summary": "Final"},
+    ]
+    doc2["document"]["tracking"]["status"] = "interim"
+    temp_file2 = data_path / "temp_released_rev_history_interim_invalid.json"
+    with open(temp_file2, "w") as f:
+        json.dump(doc2, f, indent=2)
+    result2 = validator.validate(temp_file2)
+    assert not result2.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_RELEASED_REVISION_HISTORY.name
+        and "not allowed when document status is 'interim'" in err.message
+        for err in result2.errors
+    )
+    temp_file2.unlink()
+
+    # Test case 3: Valid - status 'draft' with revision '0'
+    doc3 = copy.deepcopy(base_csaf_doc)
+    doc3["document"]["tracking"]["revision_history"] = [
+        {"date": "2023-01-01T00:00:00Z", "number": "0", "summary": "Draft"}
+    ]
+    doc3["document"]["tracking"]["status"] = "draft"
+    doc3["document"]["tracking"]["version"] = "0"
+    temp_file3 = data_path / "temp_released_rev_history_draft_valid.json"
+    with open(temp_file3, "w") as f:
+        json.dump(doc3, f, indent=2)
+    result3 = validator.validate(temp_file3)
+    assert result3.is_valid
+    temp_file3.unlink()
+
+    # Test case 4: Valid - status 'final' without '0' revisions
+    doc4 = copy.deepcopy(base_csaf_doc)
+    doc4["document"]["tracking"]["revision_history"] = [
+        {"date": "2023-01-02T00:00:00Z", "number": "1.0.0", "summary": "Final"}
+    ]
+    doc4["document"]["tracking"]["status"] = "final"
+    temp_file4 = data_path / "temp_released_rev_history_final_valid.json"
+    with open(temp_file4, "w") as f:
+        json.dump(doc4, f, indent=2)
+    result4 = validator.validate(temp_file4)
+    assert result4.is_valid
+    temp_file4.unlink()
+
+
+@pytest.mark.parametrize(
+    "revision_history, is_valid, error_message_part",
+    [
+        # Valid: No pre-release versions in revision history
+        (
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0",
+                    "summary": "Initial",
+                },
+                {
+                    "date": "2023-01-02T00:00:00Z",
+                    "number": "2.0.0",
+                    "summary": "Second",
+                },
+            ],
+            True,
+            None,
+        ),
+        # Invalid: Pre-release version in revision history
+        (
+            [
+                {
+                    "date": "2023-01-01T00:00:00Z",
+                    "number": "1.0.0-alpha",
+                    "summary": "Initial",
+                },
+                {"date": "2023-01-02T00:00:00Z", "number": "1.0.0", "summary": "Final"},
+            ],
+            False,
+            "contains pre-release information",
+        ),
+    ],
+)
+def test_mandatory_revision_history_entries_for_pre_release_versions(
+    revision_history, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.19 Revision History Entries for Pre-release Versions
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Pre-release in Revision History",
+            "tracking": {
+                "id": "TEST-2023-0018",
+                "status": "final",
                 "version": "1.0.0",
                 "initial_release_date": "2023-01-01T00:00:00Z",
-                "current_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-02T00:00:00Z",
                 "revision_history": revision_history,
             },
             "category": "csaf_base",
@@ -2068,22 +2164,23 @@ def test_mandatory_released_revision_history(
     validator = Validator(csaf_schema_path)
     doc = copy.deepcopy(base_csaf_doc)
 
-    temp_file = data_path / "temp_released_revision_history.json"
+    temp_file = data_path / "temp_pre_release_in_revision_history.json"
     with open(temp_file, "w") as f:
         json.dump(doc, f, indent=2)
 
     result = validator.validate(temp_file)
 
     if is_valid:
-        # Check that there are no errors for this specific rule
         assert not any(
-            err.rule == Rule.MANDATORY_RELEASED_REVISION_HISTORY.name
+            err.rule
+            == Rule.MANDATORY_REVISION_HISTORY_ENTRIES_FOR_PRE_RELEASE_VERSIONS.name
             for err in result.errors
         )
     else:
         assert not result.is_valid
         assert any(
-            err.rule == Rule.MANDATORY_RELEASED_REVISION_HISTORY.name
+            err.rule
+            == Rule.MANDATORY_REVISION_HISTORY_ENTRIES_FOR_PRE_RELEASE_VERSIONS.name
             and error_message_part in err.message
             for err in result.errors
         )
@@ -2425,7 +2522,7 @@ def test_mandatory_prohibited_document_category_name(
             for err in result.errors
         )
 
-        temp_file.unlink()
+    temp_file.unlink()
 
     @pytest.mark.parametrize(
         "branches, is_valid, error_message_part",
