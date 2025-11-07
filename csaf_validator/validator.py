@@ -14,6 +14,7 @@ from csaf_validator.rules import (
     check_mandatory_invalid_cvss_computation,
     check_mandatory_language,
     check_mandatory_latest_document_version,
+    check_mandatory_missing_item_in_revision_history,
     check_mandatory_missing_product_group_id_definition,
     check_mandatory_missing_product_id_definition,
     check_mandatory_multiple_definition_in_revision_history,
@@ -50,6 +51,7 @@ _ALL_RULES = [
     check_mandatory_non_draft_document_version,
     check_mandatory_released_revision_history,
     check_mandatory_revision_history_entries_for_pre_release_versions,
+    check_mandatory_missing_item_in_revision_history,
     check_mandatory_multiple_definition_in_revision_history,
     check_mandatory_multiple_use_of_same_cve,
     check_mandatory_prohibited_document_category_name,
@@ -151,5 +153,6 @@ class Validator:
         errors.extend(
             check_mandatory_revision_history_entries_for_pre_release_versions(instance)
         )
+        errors.extend(check_mandatory_missing_item_in_revision_history(instance))
 
         return ValidationResult(not bool(errors), errors)

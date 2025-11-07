@@ -123,6 +123,11 @@ class Rule(Enum):
         "It MUST be tested that no item of the revision history has a `number` "
         "which includes pre-release information.",
     )
+    MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY = (
+        "6.1.21 Missing Item in Revision History",
+        "It MUST be tested that items of the revision history do not omit a "
+        "version number when the items are sorted ascending by `date`.",
+    )
 
 
 class ValidationError:
@@ -1259,6 +1264,80 @@ def check_mandatory_released_revision_history(doc):
                             f"when document status is '{doc_status}'.",
                         )
                     )
+
+    return errors
+
+
+def check_mandatory_missing_item_in_revision_history(doc):
+    """
+    6.1.21 Missing Item in Revision History
+    It MUST be tested that items of the revision history do not omit a version
+    number when the items are sorted ascending by `date`.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    if "revision_history" not in tracking:
+        return errors
+
+    revision_history = tracking["revision_history"]
+
+    try:
+        sorted_by_date = sorted(revision_history, key=lambda x: x["date"])
+    except (KeyError, TypeError):
+        return errors
+
+    numbers = [rev["number"] for rev in sorted_by_date]
+
+    is_semver = all("." in str(n) for n in numbers)
+    is_integer = all(str(n).isdigit() for n in numbers)
+
+    if is_semver:
+        major_versions = [int(str(n).split(".")[0]) for n in numbers]
+        if not major_versions:
+            return errors
+        if major_versions[0] not in (0, 1):
+            errors.append(
+                ValidationError(
+                    Rule.MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY.name,
+                    "First revision history item must have a major version of 0 or 1.",
+                )
+            )
+        for i in range(len(major_versions) - 1):
+            if major_versions[i + 1] - major_versions[i] > 1:
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY.name,
+                        (
+                            "Revision history is missing a major version between "
+                            f"{major_versions[i]} and {major_versions[i+1]}."
+                        ),
+                    )
+                )
+    elif is_integer:
+        int_numbers = [int(n) for n in numbers]
+        if not int_numbers:
+            return errors
+        if int_numbers[0] not in (0, 1):
+            errors.append(
+                ValidationError(
+                    Rule.MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY.name,
+                    "First revision history item must have a version number of 0 or 1.",
+                )
+            )
+        for i in range(len(int_numbers) - 1):
+            if int_numbers[i + 1] - int_numbers[i] > 1:
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY.name,
+                        (
+                            "Revision history is missing a version number between "
+                            f"{int_numbers[i]} and {int_numbers[i+1]}."
+                        ),
+                    )
+                )
 
     return errors
 

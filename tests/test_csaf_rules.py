@@ -1,6 +1,4 @@
-"""
-Stub tests for CSAF 2.0 validation rules based on csaf-v2.0-os.md.
-"""
+"Stub tests for CSAF 2.0 validation rules based on csaf-v2.0-os.md."
 
 import copy
 import json
@@ -1002,103 +1000,14 @@ def test_mandatory_invalid_cvss_computation(
         )
     temp_file.unlink()
 
-    @pytest.mark.parametrize(
-        "scores, is_valid, error_message_part",
-        [
-            # Valid: CVSS v3.1 correct
-            (
-                [
-                    {
-                        "products": ["CSAFPID-0001"],
-                        "cvss_v3": {
-                            "version": "3.1",
-                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-                            "baseScore": 7.5,
-                            "baseSeverity": "HIGH",
-                        },
-                    }
-                ],
-                True,
-                None,
-            ),
-            # Valid: CVSS v2.0 correct
-            (
-                [
-                    {
-                        "products": ["CSAFPID-0001"],
-                        "cvss_v2": {
-                            "version": "2.0",
-                            "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
-                            "baseScore": 7.5,
-                        },
-                    }
-                ],
-                True,
-                None,
-            ),
-            # Invalid: CVSS v3.1 incorrect baseScore
-            (
-                [
-                    {
-                        "products": ["CSAFPID-0001"],
-                        "cvss_v3": {
-                            "version": "3.1",
-                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-                            "baseScore": 7.4,  # Incorrect
-                            "baseSeverity": "HIGH",
-                        },
-                    }
-                ],
-                False,
-                "baseScore in vulnerability 0, score 0 is 7.4, but should be 7.5",
-            ),
-            # Invalid: CVSS v3.1 incorrect baseSeverity
-            (
-                [
-                    {
-                        "products": ["CSAFPID-0001"],
-                        "cvss_v3": {
-                            "version": "3.1",
-                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-                            "baseScore": 7.5,
-                            "baseSeverity": "MEDIUM",  # Incorrect
-                        },
-                    }
-                ],
-                False,
-                "baseSeverity in vulnerability 0, score 0 is 'MEDIUM', but should be 'High'",
-            ),
-            # Invalid: CVSS v2.0 incorrect baseScore
-            (
-                [
-                    {
-                        "products": ["CSAFPID-0001"],
-                        "cvss_v2": {
-                            "version": "2.0",
-                            "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
-                            "baseScore": 7.4,  # Incorrect
-                        },
-                    }
-                ],
-                False,
-                "baseScore in vulnerability 0, score 0 is 7.4, but should be 7.5",
-            ),
-        ],
-    )
-    def test_mandatory_invalid_cvss_computation(
-        scores, is_valid, error_message_part, data_path, csaf_schema_path
-    ):
+    def test_mandatory_inconsistent_cvss(data_path, csaf_schema_path):
         """
 
-        6.1.9 Invalid CVSS computation
+        6.1.10 Inconsistent CVSS
 
 
 
-        It MUST be tested that the given CVSS object has the values computed
-
-
-
-        correctly according to the definition.
+        It MUST be tested that the given CVSS properties do not contradict the CVSS vector.
 
 
 
@@ -1114,7 +1023,7 @@ def test_mandatory_invalid_cvss_computation(
                 },
                 "title": "Test Advisory",
                 "tracking": {
-                    "id": "TEST-2023-0008",
+                    "id": "TEST-2023-0009",
                     "status": "final",
                     "version": "1.0.0",
                     "initial_release_date": "2023-01-01T00:00:00Z",
@@ -1137,233 +1046,154 @@ def test_mandatory_invalid_cvss_computation(
             "vulnerabilities": [
                 {
                     "title": "Vulnerability 1",
-                    "scores": scores,
+                    "scores": [],
                 }
             ],
         }
 
         validator = Validator(csaf_schema_path)
 
-        doc = copy.deepcopy(base_csaf_doc)
+        # Test case 1: Consistent CVSS v3.1
 
-        temp_file = data_path / "temp_invalid_cvss_computation.json"
+        doc1 = copy.deepcopy(base_csaf_doc)
 
-        with open(temp_file, "w") as f:
-
-            json.dump(doc, f, indent=2)
-
-        result = validator.validate(temp_file)
-
-        if is_valid:
-
-            assert result.is_valid
-
-        else:
-
-            assert not result.is_valid
-
-            assert any(
-                err.rule == Rule.MANDATORY_INVALID_CVSS_COMPUTATION.name
-                and error_message_part in err.message
-                for err in result.errors
-            )
-
-        temp_file.unlink()
-
-        def test_mandatory_inconsistent_cvss(data_path, csaf_schema_path):
-            """
-
-            6.1.10 Inconsistent CVSS
-
-
-
-            It MUST be tested that the given CVSS properties do not contradict the CVSS vector.
-
-
-
-            """
-
-            base_csaf_doc = {
-                "document": {
-                    "csaf_version": "2.0",
-                    "publisher": {
-                        "category": "vendor",
-                        "name": "Example Company",
-                        "namespace": "https://example.com",
-                    },
-                    "title": "Test Advisory",
-                    "tracking": {
-                        "id": "TEST-2023-0009",
-                        "status": "final",
-                        "version": "1.0.0",
-                        "initial_release_date": "2023-01-01T00:00:00Z",
-                        "current_release_date": "2023-01-01T00:00:00Z",
-                        "revision_history": [
-                            {
-                                "date": "2023-01-01T00:00:00Z",
-                                "number": "1.0.0",
-                                "summary": "Initial release",
-                            }
-                        ],
-                    },
-                    "category": "csaf_base",
+        doc1["vulnerabilities"][0]["scores"].append(
+            {
+                "products": ["CSAFPID-0001"],
+                "cvss_v3": {
+                    "version": "3.1",
+                    "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                    "baseScore": 7.5,
+                    "baseSeverity": "HIGH",
+                    "attackVector": "NETWORK",
+                    "attackComplexity": "LOW",
+                    "privilegesRequired": "NONE",
+                    "userInteraction": "NONE",
+                    "scope": "UNCHANGED",
+                    "confidentialityImpact": "HIGH",
+                    "integrityImpact": "NONE",
+                    "availabilityImpact": "NONE",
                 },
-                "product_tree": {
-                    "full_product_names": [
-                        {"product_id": "CSAFPID-0001", "name": "Product A"},
-                    ],
-                },
-                "vulnerabilities": [
-                    {
-                        "title": "Vulnerability 1",
-                        "scores": [],
-                    }
-                ],
             }
+        )
 
-            validator = Validator(csaf_schema_path)
+        temp_file1 = data_path / "temp_consistent_cvss_v3.json"
 
-            # Test case 1: Consistent CVSS v3.1
+        with open(temp_file1, "w") as f:
 
-            doc1 = copy.deepcopy(base_csaf_doc)
+            json.dump(doc1, f, indent=2)
 
-            doc1["vulnerabilities"][0]["scores"].append(
-                {
-                    "products": ["CSAFPID-0001"],
-                    "cvss_v3": {
-                        "version": "3.1",
-                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-                        "baseScore": 7.5,
-                        "baseSeverity": "HIGH",
-                        "attackVector": "NETWORK",
-                        "attackComplexity": "LOW",
-                        "privilegesRequired": "NONE",
-                        "userInteraction": "NONE",
-                        "scope": "UNCHANGED",
-                        "confidentialityImpact": "HIGH",
-                        "integrityImpact": "NONE",
-                        "availabilityImpact": "NONE",
-                    },
-                }
-            )
+        result1 = validator.validate(temp_file1)
 
-            temp_file1 = data_path / "temp_consistent_cvss_v3.json"
+        assert result1.is_valid
 
-            with open(temp_file1, "w") as f:
+        temp_file1.unlink()
 
-                json.dump(doc1, f, indent=2)
+        # Test case 2: Inconsistent CVSS v3.1
 
-            result1 = validator.validate(temp_file1)
+        doc2 = copy.deepcopy(base_csaf_doc)
 
-            assert result1.is_valid
+        doc2["vulnerabilities"][0]["scores"].append(
+            {
+                "products": ["CSAFPID-0001"],
+                "cvss_v3": {
+                    "version": "3.1",
+                    "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                    "baseScore": 7.5,
+                    "baseSeverity": "HIGH",
+                    "attackVector": "LOCAL",  # Inconsistent
+                },
+            }
+        )
 
-            temp_file1.unlink()
+        temp_file2 = data_path / "temp_inconsistent_cvss_v3.json"
 
-            # Test case 2: Inconsistent CVSS v3.1
+        with open(temp_file2, "w") as f:
 
-            doc2 = copy.deepcopy(base_csaf_doc)
+            json.dump(doc2, f, indent=2)
 
-            doc2["vulnerabilities"][0]["scores"].append(
-                {
-                    "products": ["CSAFPID-0001"],
-                    "cvss_v3": {
-                        "version": "3.1",
-                        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-                        "baseScore": 7.5,
-                        "baseSeverity": "HIGH",
-                        "attackVector": "LOCAL",  # Inconsistent
-                    },
-                }
-            )
+        result2 = validator.validate(temp_file2)
 
-            temp_file2 = data_path / "temp_inconsistent_cvss_v3.json"
+        assert not result2.is_valid
 
-            with open(temp_file2, "w") as f:
+        assert any(
+            err.rule == Rule.MANDATORY_INCONSISTENT_CVSS.name
+            and "attackVector" in err.message
+            and "LOCAL" in err.message
+            and "NETWORK" in err.message
+            for err in result2.errors
+        )
 
-                json.dump(doc2, f, indent=2)
+        temp_file2.unlink()
 
-            result2 = validator.validate(temp_file2)
+        # Test case 3: Consistent CVSS v2.0
 
-            assert not result2.is_valid
+        doc3 = copy.deepcopy(base_csaf_doc)
 
-            assert any(
-                err.rule == Rule.MANDATORY_INCONSISTENT_CVSS.name
-                and "attackVector" in err.message
-                and "LOCAL" in err.message
-                and "NETWORK" in err.message
-                for err in result2.errors
-            )
+        doc3["vulnerabilities"][0]["scores"].append(
+            {
+                "products": ["CSAFPID-0001"],
+                "cvss_v2": {
+                    "version": "2.0",
+                    "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                    "baseScore": 7.5,
+                    "accessVector": "NETWORK",
+                    "accessComplexity": "LOW",
+                    "authentication": "NONE",
+                    "confidentialityImpact": "PARTIAL",
+                    "integrityImpact": "PARTIAL",
+                    "availabilityImpact": "PARTIAL",
+                },
+            }
+        )
 
-            temp_file2.unlink()
+        temp_file3 = data_path / "temp_consistent_cvss_v2.json"
 
-            # Test case 3: Consistent CVSS v2.0
+        with open(temp_file3, "w") as f:
 
-            doc3 = copy.deepcopy(base_csaf_doc)
+            json.dump(doc3, f, indent=2)
 
-            doc3["vulnerabilities"][0]["scores"].append(
-                {
-                    "products": ["CSAFPID-0001"],
-                    "cvss_v2": {
-                        "version": "2.0",
-                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
-                        "baseScore": 7.5,
-                        "accessVector": "NETWORK",
-                        "accessComplexity": "LOW",
-                        "authentication": "NONE",
-                        "confidentialityImpact": "PARTIAL",
-                        "integrityImpact": "PARTIAL",
-                        "availabilityImpact": "PARTIAL",
-                    },
-                }
-            )
+        result3 = validator.validate(temp_file3)
 
-            temp_file3 = data_path / "temp_consistent_cvss_v2.json"
+        assert result3.is_valid
 
-            with open(temp_file3, "w") as f:
+        temp_file3.unlink()
 
-                json.dump(doc3, f, indent=2)
+        # Test case 4: Inconsistent CVSS v2.0
 
-            result3 = validator.validate(temp_file3)
+        doc4 = copy.deepcopy(base_csaf_doc)
 
-            assert result3.is_valid
+        doc4["vulnerabilities"][0]["scores"].append(
+            {
+                "products": ["CSAFPID-0001"],
+                "cvss_v2": {
+                    "version": "2.0",
+                    "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                    "baseScore": 7.5,
+                    "accessVector": "LOCAL",  # Inconsistent
+                },
+            }
+        )
 
-            temp_file3.unlink()
+        temp_file4 = data_path / "temp_inconsistent_cvss_v2.json"
 
-            # Test case 4: Inconsistent CVSS v2.0
+        with open(temp_file4, "w") as f:
 
-            doc4 = copy.deepcopy(base_csaf_doc)
+            json.dump(doc4, f, indent=2)
 
-            doc4["vulnerabilities"][0]["scores"].append(
-                {
-                    "products": ["CSAFPID-0001"],
-                    "cvss_v2": {
-                        "version": "2.0",
-                        "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
-                        "baseScore": 7.5,
-                        "accessVector": "LOCAL",  # Inconsistent
-                    },
-                }
-            )
+        result4 = validator.validate(temp_file4)
 
-            temp_file4 = data_path / "temp_inconsistent_cvss_v2.json"
+        assert not result4.is_valid
 
-            with open(temp_file4, "w") as f:
+        assert any(
+            err.rule == Rule.MANDATORY_INCONSISTENT_CVSS.name
+            and "accessVector" in err.message
+            and "LOCAL" in err.message
+            and "NETWORK" in err.message
+            for err in result4.errors
+        )
 
-                json.dump(doc4, f, indent=2)
-
-            result4 = validator.validate(temp_file4)
-
-            assert not result4.is_valid
-
-            assert any(
-                err.rule == Rule.MANDATORY_INCONSISTENT_CVSS.name
-                and "accessVector" in err.message
-                and "LOCAL" in err.message
-                and "NETWORK" in err.message
-                for err in result4.errors
-            )
-
-            temp_file4.unlink()
+        temp_file4.unlink()
 
         @pytest.mark.parametrize(
             "cwe, is_valid, error_message_part",
@@ -2264,6 +2094,81 @@ def test_mandatory_non_draft_document_version(
         assert not result.is_valid
         assert any(
             err.rule == Rule.MANDATORY_NON_DRAFT_DOCUMENT_VERSION.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+
+    temp_file.unlink()
+
+
+@pytest.mark.parametrize(
+    "revision_history, is_valid, error_message_part",
+    [
+        # Valid: No missing versions
+        (
+            [
+                {"date": "2023-01-01T00:00:00Z", "number": "1", "summary": "Initial"},
+                {"date": "2023-01-02T00:00:00Z", "number": "2", "summary": "Second"},
+            ],
+            True,
+            None,
+        ),
+        # Invalid: Missing version
+        (
+            [
+                {"date": "2023-01-01T00:00:00Z", "number": "1", "summary": "Initial"},
+                {"date": "2023-01-03T00:00:00Z", "number": "3", "summary": "Third"},
+            ],
+            False,
+            "missing a version number between 1 and 3",
+        ),
+    ],
+)
+def test_mandatory_missing_item_in_revision_history(
+    revision_history, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.21 Missing Item in Revision History
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Missing Item in Revision History",
+            "tracking": {
+                "id": "TEST-2023-0020",
+                "status": "final",
+                "version": "3",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-03T00:00:00Z",
+                "revision_history": revision_history,
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_missing_item_in_revision_history.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert not any(
+            err.rule == Rule.MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY.name
+            for err in result.errors
+        )
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_MISSING_ITEM_IN_REVISION_HISTORY.name
             and error_message_part in err.message
             for err in result.errors
         )
