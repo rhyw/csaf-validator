@@ -851,6 +851,78 @@ def test_mandatory_multiple_scores_with_same_version_per_product(
     temp_file.unlink()
 
 
+def test_mandatory_invalid_cvss(data_path, csaf_schema_path):
+    """
+    6.1.8 Invalid CVSS
+    It MUST be tested that the given CVSS object is valid according to the
+    referenced schema.
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Invalid CVSS",
+            "tracking": {
+                "id": "TEST-2023-0008",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+            ],
+        },
+        "vulnerabilities": [
+            {
+                "title": "Vulnerability 1",
+                "scores": [
+                    {
+                        "products": ["CSAFPID-0001"],
+                        "cvss_v3": {
+                            "version": "3.1",
+                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                            "baseScore": 7.5,
+                            # "baseSeverity": "HIGH",  # Missing
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_invalid_cvss.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    assert not result.is_valid
+    assert any(
+        err.rule == Rule.MANDATORY_INVALID_CVSS.name
+        and "missing the required 'baseSeverity' field" in err.message
+        for err in result.errors
+    )
+    temp_file.unlink()
+
+
 @pytest.mark.parametrize(
     "scores, is_valid, error_message_part",
     [

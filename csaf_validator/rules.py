@@ -44,6 +44,10 @@ class Rule(Enum):
         "For each item in /vulnerabilities it MUST be tested that the same "
         "Product ID is not member of more than one CVSS-Vectors with the same version.",
     )
+    MANDATORY_INVALID_CVSS = (
+        "6.1.8 Invalid CVSS",
+        "It MUST be tested that the given CVSS object is valid according to the referenced schema.",
+    )
     MANDATORY_INVALID_CVSS_COMPUTATION = (
         "6.1.9 Invalid CVSS computation",
         "It MUST be tested that the given CVSS object has the values computed "
@@ -526,6 +530,36 @@ def check_mandatory_multiple_scores_with_same_version_per_product(doc):
                             )
                     else:
                         product_scores[product_id].add(cvss_version)
+
+    return errors
+
+
+def check_mandatory_invalid_cvss(doc):
+    """
+    6.1.8 Invalid CVSS
+    It MUST be tested that the given CVSS object is valid according to the
+    referenced schema. This check focuses on requirements that might not be
+    enforced by all schema validators, like the presence of baseSeverity for CVSS v3.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "scores" not in vuln:
+            continue
+
+        for score_index, score in enumerate(vuln.get("scores", [])):
+            if "cvss_v3" in score:
+                cvss_data = score["cvss_v3"]
+                if "baseSeverity" not in cvss_data:
+                    errors.append(
+                        ValidationError(
+                            Rule.MANDATORY_INVALID_CVSS.name,
+                            f"CVSS v3.x object in vulnerability {vuln_index}, score {score_index} "
+                            "is missing the required 'baseSeverity' field.",
+                        )
+                    )
 
     return errors
 
