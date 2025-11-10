@@ -86,6 +86,11 @@ class Rule(Enum):
         "Build metadata is ignored in the comparison. Any pre-release part is also "
         "ignored if the document status is `draft`.",
     )
+    MANDATORY_DOCUMENT_STATUS_DRAFT = (
+        "6.1.17 Document Status Draft",
+        "It MUST be tested that document status is `draft` if the document "
+        "version is `0` or `0.y.z` or contains the pre-release part.",
+    )
     MANDATORY_MULTIPLE_DEFINITION_IN_REVISION_HISTORY = (
         "6.1.22 Multiple Definition in Revision History",
         "It MUST be tested that items of the revision history do not contain "
@@ -1052,6 +1057,42 @@ def check_mandatory_latest_document_version(doc):
                 Rule.MANDATORY_LATEST_DOCUMENT_VERSION.name,
                 f"Document version '{doc_version}' does not match the number of the "
                 f"latest revision history item '{latest_revision_number}'.",
+            )
+        )
+
+    return errors
+
+
+def check_mandatory_document_status_draft(doc):
+    """
+    6.1.17 Document Status Draft
+    It MUST be tested that document status is `draft` if the document version
+    is `0` or `0.y.z` or contains the pre-release part.
+    """
+    errors = []
+    if "document" not in doc or "tracking" not in doc["document"]:
+        return errors
+
+    tracking = doc["document"]["tracking"]
+    doc_status = tracking.get("status")
+    doc_version = tracking.get("version")
+
+    if not doc_status or not doc_version:
+        return errors  # Should be caught by schema validation
+
+    doc_version_str = str(doc_version)
+    is_pre_release_version = (
+        doc_version_str == "0"
+        or doc_version_str.startswith("0.")
+        or "-" in doc_version_str
+    )
+
+    if is_pre_release_version and doc_status != "draft":
+        errors.append(
+            ValidationError(
+                Rule.MANDATORY_DOCUMENT_STATUS_DRAFT.name,
+                f"Document version '{doc_version}' indicates a pre-release, but status is "
+                f"'{doc_status}' instead of 'draft'.",
             )
         )
 

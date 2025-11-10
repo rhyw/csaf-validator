@@ -1906,6 +1906,85 @@ def test_mandatory_latest_document_version(
     temp_file.unlink()
 
 
+@pytest.mark.parametrize(
+    "version, status, is_valid, error_message_part",
+    [
+        # Valid: Draft status with 0.y.z version
+        ("0.9.0", "draft", True, None),
+        # Valid: Draft status with pre-release version
+        ("1.0.0-alpha", "draft", True, None),
+        # Valid: Final status with release version
+        ("1.0.0", "final", True, None),
+        # Invalid: Final status with 0.y.z version
+        (
+            "0.9.5",
+            "final",
+            False,
+            "indicates a pre-release, but status is 'final' instead of 'draft'",
+        ),
+        # Invalid: Interim status with pre-release version
+        (
+            "1.0.0-beta",
+            "interim",
+            False,
+            "indicates a pre-release, but status is 'interim' instead of 'draft'",
+        ),
+    ],
+)
+def test_mandatory_document_status_draft(
+    version, status, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.17 Document Status Draft
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Document Status Draft",
+            "tracking": {
+                "id": "TEST-2023-0016",
+                "status": status,
+                "version": version,
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": version.split("-")[0],
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_document_status_draft.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert result.is_valid
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_DOCUMENT_STATUS_DRAFT.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+    temp_file.unlink()
+
+
 def test_mandatory_released_revision_history(data_path, csaf_schema_path):
     """
     6.1.18 Released Revision History

@@ -9,6 +9,7 @@ from csaf_validator.rules import (
     check_mandatory_circular_definition_of_product_id,
     check_mandatory_contradicting_product_status,
     check_mandatory_cwe,
+    check_mandatory_document_status_draft,
     check_mandatory_flag_without_product_reference,
     check_mandatory_inconsistent_cvss,
     check_mandatory_invalid_cvss,
@@ -50,6 +51,7 @@ _ALL_RULES = [
     check_mandatory_sorted_revision_history,
     check_mandatory_translator,
     check_mandatory_latest_document_version,
+    check_mandatory_document_status_draft,
     check_mandatory_non_draft_document_version,
     check_mandatory_released_revision_history,
     check_mandatory_revision_history_entries_for_pre_release_versions,
@@ -120,6 +122,7 @@ class Validator:
         errors.extend(check_mandatory_sorted_revision_history(instance))
         errors.extend(check_mandatory_translator(instance))
         errors.extend(check_mandatory_latest_document_version(instance))
+        errors.extend(check_mandatory_document_status_draft(instance))
         errors.extend(check_mandatory_non_draft_document_version(instance))
         errors.extend(check_mandatory_released_revision_history(instance))
         errors.extend(check_mandatory_multiple_definition_in_revision_history(instance))
