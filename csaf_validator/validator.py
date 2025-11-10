@@ -32,6 +32,7 @@ from csaf_validator.rules import (
     check_mandatory_released_revision_history,
     check_mandatory_revision_history_entries_for_pre_release_versions,
     check_mandatory_sorted_revision_history,
+    check_mandatory_translation,
     check_mandatory_translator,
     check_mandatory_version_range_in_product_version,
 )
@@ -63,6 +64,7 @@ _ALL_RULES = [
     check_mandatory_multiple_definition_in_involvements,
     check_mandatory_multiple_use_of_same_hash_algorithm,
     check_mandatory_prohibited_document_category_name,
+    check_mandatory_translation,
     check_mandatory_version_range_in_product_version,
     check_mandatory_flag_without_product_reference,
 ]
@@ -133,6 +135,7 @@ class Validator:
         errors.extend(check_mandatory_multiple_use_of_same_cve(instance))
         errors.extend(check_mandatory_multiple_definition_in_involvements(instance))
         errors.extend(check_mandatory_prohibited_document_category_name(instance))
+        errors.extend(check_mandatory_translation(instance))
         errors.extend(check_mandatory_version_range_in_product_version(instance))
         errors.extend(check_mandatory_flag_without_product_reference(instance))
         errors.extend(

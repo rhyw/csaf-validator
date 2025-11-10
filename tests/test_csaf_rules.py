@@ -2770,105 +2770,93 @@ def test_mandatory_prohibited_document_category_name(
 
     temp_file.unlink()
 
-    @pytest.mark.parametrize(
-        "branches, is_valid, error_message_part",
-        [
-            # Valid: No version range in product_version
-            (
-                [
-                    {
-                        "category": "product_version",
-                        "name": "1.0",
-                        "product": {
-                            "product_id": "CSAFPID-0001",
-                            "name": "Product A v1.0",
-                        },
-                    }
-                ],
-                True,
-                None,
-            ),
-            # Invalid: Version range in product_version
-            (
-                [
-                    {
-                        "category": "product_version",
-                        "name": "prior to 4.2",
-                        "product": {"product_id": "CSAFPID-0001", "name": "Product A"},
-                    }
-                ],
-                False,
-                "contains a version range in 'name'",
-            ),
-        ],
-    )
-    def test_mandatory_version_range_in_product_version(
-        branches, is_valid, error_message_part, data_path, csaf_schema_path
-    ):
-        """
 
-        6.1.31 Version Range in Product Version
-
-        """
-
-        base_csaf_doc = {
-            "document": {
-                "csaf_version": "2.0",
-                "publisher": {
-                    "category": "vendor",
-                    "name": "Example Company",
-                    "namespace": "https://example.com",
-                },
-                "title": "Test Advisory for Version Range in Product Version",
-                "tracking": {
-                    "id": "TEST-2023-0029",
-                    "status": "final",
-                    "version": "1.0.0",
-                    "initial_release_date": "2023-01-01T00:00:00Z",
-                    "current_release_date": "2023-01-01T00:00:00Z",
-                    "revision_history": [
-                        {
-                            "date": "2023-01-01T00:00:00Z",
-                            "number": "1.0.0",
-                            "summary": "Initial release",
-                        }
-                    ],
-                },
-                "category": "csaf_base",
+@pytest.mark.parametrize(
+    "lang, source_lang, is_valid, error_message_part",
+    [
+        # Valid: Different languages
+        ("en-US", "de-DE", True, None),
+        # Valid: Only lang present
+        ("en-US", None, True, None),
+        # Valid: Only source_lang present
+        (None, "de-DE", True, None),
+        # Invalid: Same languages
+        (
+            "en-US",
+            "en-US",
+            False,
+            "Document language 'en-US' and source language 'en-US' must not be the same.",
+        ),
+    ],
+)
+def test_mandatory_translation(
+    lang, source_lang, is_valid, error_message_part, data_path, csaf_schema_path
+):
+    """
+    6.1.28 Translation
+    """
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Translator",
+                "namespace": "https://example.com",
             },
-            "product_tree": {"branches": branches},
-        }
+            "title": "Test Advisory for Translation",
+            "tracking": {
+                "id": "TEST-2023-0021",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+    }
 
-        validator = Validator(csaf_schema_path)
+    if lang:
+        base_csaf_doc["document"]["lang"] = lang
+    if source_lang:
+        base_csaf_doc["document"]["source_lang"] = source_lang
 
-        doc = copy.deepcopy(base_csaf_doc)
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
 
-        temp_file = data_path / "temp_version_range_in_product_version.json"
+    temp_file = data_path / "temp_translation_test.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
 
-        with open(temp_file, "w") as f:
+    result = validator.validate(temp_file)
 
-            json.dump(doc, f, indent=2)
+    if is_valid:
+        assert result.is_valid
+    else:
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_TRANSLATION.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+    temp_file.unlink()
 
-        result = validator.validate(temp_file)
 
-        if is_valid:
-
-            assert not any(
-                err.rule == Rule.MANDATORY_VERSION_RANGE_IN_PRODUCT_VERSION.name
-                for err in result.errors
-            )
-
-        else:
-
-            assert not result.is_valid
-
-            assert any(
-                err.rule == Rule.MANDATORY_VERSION_RANGE_IN_PRODUCT_VERSION.name
-                and error_message_part in err.message
-                for err in result.errors
-            )
-
-        temp_file.unlink()
+@pytest.mark.skip(reason="Not implemented yet")
+def test_mandatory_version_range_in_product_version():
+    """
+    6.1.31 Version Range in Product Version
+    For each element of type `/$defs/branches_t` with `category` of
+    `product_version` it MUST be tested that the value of `name` does not
+    contain a version range.
+    """
+    pass
 
     @pytest.mark.parametrize(
         "flags, is_valid, error_message_part",

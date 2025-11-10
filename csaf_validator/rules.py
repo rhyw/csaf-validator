@@ -116,6 +116,10 @@ class Rule(Enum):
         "insensitive) name (without the prefix `csaf_`) or value of any other "
         "profile than CSAF Base.",
     )
+    MANDATORY_TRANSLATION = (
+        "6.1.28 Translation",
+        "It MUST be tested that the given source language and document language are not the same.",
+    )
     MANDATORY_VERSION_RANGE_IN_PRODUCT_VERSION = (
         "6.1.31 Version Range in Product Version",
         "For each element of type `/$defs/branches_t` with `category` of "
@@ -1324,6 +1328,31 @@ def check_mandatory_prohibited_document_category_name(doc):
                 )
             )
             break
+
+    return errors
+
+
+def check_mandatory_translation(doc):
+    """
+    6.1.28 Translation
+    It MUST be tested that the given source language and document language are
+    not the same.
+    """
+    errors = []
+    if "document" not in doc:
+        return errors
+
+    document = doc["document"]
+    lang = document.get("lang")
+    source_lang = document.get("source_lang")
+
+    if lang and source_lang and lang == source_lang:
+        errors.append(
+            ValidationError(
+                Rule.MANDATORY_TRANSLATION.name,
+                f"Document language '{lang}' and source language '{source_lang}' must not be the same.",
+            )
+        )
 
     return errors
 
