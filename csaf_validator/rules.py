@@ -120,6 +120,11 @@ class Rule(Enum):
         "6.1.28 Translation",
         "It MUST be tested that the given source language and document language are not the same.",
     )
+    MANDATORY_REMEDIATION_WITHOUT_PRODUCT_REFERENCE = (
+        "6.1.29 Remediation without Product Reference",
+        "For each item in /vulnerabilities[]/remediations it MUST be tested that "
+        "it includes at least one of the elements group_ids or product_ids.",
+    )
     MANDATORY_VERSION_RANGE_IN_PRODUCT_VERSION = (
         "6.1.31 Version Range in Product Version",
         "For each element of type `/$defs/branches_t` with `category` of "
@@ -449,13 +454,13 @@ def check_mandatory_missing_product_group_id_definition(doc):
     # Gather all referenced Product Group IDs
     for vuln in doc.get("vulnerabilities", []):
         for remediation in vuln.get("remediations", []):
-            collect_group_ids(remediation.get("product_groups", []))
+            collect_group_ids(remediation.get("group_ids", []))
         for score in vuln.get("scores", []):
-            collect_group_ids(score.get("product_groups", []))
+            collect_group_ids(score.get("group_ids", []))
         for threat in vuln.get("threats", []):
-            collect_group_ids(threat.get("product_groups", []))
+            collect_group_ids(threat.get("group_ids", []))
         for flag in vuln.get("flags", []):
-            collect_group_ids(flag.get("product_groups", []))
+            collect_group_ids(flag.get("group_ids", []))
 
     # Check for missing definitions
     missing_group_ids = referenced_group_ids - defined_group_ids
@@ -1353,6 +1358,35 @@ def check_mandatory_translation(doc):
                 f"Document language '{lang}' and source language '{source_lang}' must not be the same.",
             )
         )
+
+    return errors
+
+
+def check_mandatory_remediation_without_product_reference(doc):
+    """
+    6.1.29 Remediation without Product Reference
+    For each item in /vulnerabilities[]/remediations it MUST be tested that it
+    includes at least one of the elements group_ids or product_ids.
+    """
+    print("DEBUG: check_mandatory_remediation_without_product_reference called")
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "remediations" not in vuln:
+            continue
+
+        for i, remediation in enumerate(vuln.get("remediations", [])):
+            print(f"DEBUG: Checking remediation: {remediation}")
+            if not remediation.get("group_ids") and not remediation.get("product_ids"):
+                errors.append(
+                    ValidationError(
+                        Rule.MANDATORY_REMEDIATION_WITHOUT_PRODUCT_REFERENCE.name,
+                        f"Remediation at index {i} in vulnerability {vuln_index} "
+                        "is missing both 'group_ids' and 'product_ids'.",
+                    )
+                )
 
     return errors
 

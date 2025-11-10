@@ -2848,15 +2848,112 @@ def test_mandatory_translation(
     temp_file.unlink()
 
 
-@pytest.mark.skip(reason="Not implemented yet")
-def test_mandatory_version_range_in_product_version():
+@pytest.mark.parametrize(
+    "remediations, is_valid, error_message_part",
+    [
+        # Valid: Remediation with product_ids
+        (
+            [
+                {
+                    "category": "vendor_fix",
+                    "details": "Upgrade to version 2.0.",
+                    "product_ids": ["CSAFPID-0001"],
+                }
+            ],
+            True,
+            None,
+        ),
+        # Valid: Remediation with group_ids
+        (
+            [
+                {
+                    "category": "vendor_fix",
+                    "details": "Upgrade to version 2.0.",
+                    "group_ids": ["CSAFGID-0001"],
+                }
+            ],
+            True,
+            None,
+        ),
+        # Invalid: Remediation without product_ids or group_ids
+        (
+            [{"category": "vendor_fix", "details": "Upgrade to version 2.0."}],
+            False,
+            "is missing both 'group_ids' and 'product_ids'",
+        ),
+    ],
+)
+def test_mandatory_remediation_without_product_reference(
+    remediations, is_valid, error_message_part, data_path, csaf_schema_path
+):
     """
-    6.1.31 Version Range in Product Version
-    For each element of type `/$defs/branches_t` with `category` of
-    `product_version` it MUST be tested that the value of `name` does not
-    contain a version range.
+    6.1.29 Remediation without Product Reference
     """
-    pass
+    base_csaf_doc = {
+        "document": {
+            "csaf_version": "2.0",
+            "publisher": {
+                "category": "vendor",
+                "name": "Example Company",
+                "namespace": "https://example.com",
+            },
+            "title": "Test Advisory for Remediation Product Reference",
+            "tracking": {
+                "id": "TEST-2023-0022",
+                "status": "final",
+                "version": "1.0.0",
+                "initial_release_date": "2023-01-01T00:00:00Z",
+                "current_release_date": "2023-01-01T00:00:00Z",
+                "revision_history": [
+                    {
+                        "date": "2023-01-01T00:00:00Z",
+                        "number": "1.0.0",
+                        "summary": "Initial release",
+                    }
+                ],
+            },
+            "category": "csaf_base",
+        },
+        "product_tree": {
+            "full_product_names": [
+                {"product_id": "CSAFPID-0001", "name": "Product A"},
+                {"product_id": "CSAFPID-0002", "name": "Product B"},
+            ],
+            "product_groups": [
+                {
+                    "group_id": "CSAFGID-0001",
+                    "product_ids": ["CSAFPID-0001", "CSAFPID-0002"],
+                }
+            ],
+        },
+        "vulnerabilities": [
+            {
+                "title": "Vulnerability with Remediation",
+                "remediations": remediations,
+            }
+        ],
+    }
+
+    validator = Validator(csaf_schema_path)
+    doc = copy.deepcopy(base_csaf_doc)
+
+    temp_file = data_path / "temp_remediation_product_reference_test.json"
+    with open(temp_file, "w") as f:
+        json.dump(doc, f, indent=2)
+
+    result = validator.validate(temp_file)
+
+    if is_valid:
+        assert result.is_valid
+    else:
+        print([err.message for err in result.errors])
+        assert not result.is_valid
+        assert any(
+            err.rule == Rule.MANDATORY_REMEDIATION_WITHOUT_PRODUCT_REFERENCE.name
+            and error_message_part in err.message
+            for err in result.errors
+        )
+    temp_file.unlink()
 
     @pytest.mark.parametrize(
         "flags, is_valid, error_message_part",
@@ -3010,7 +3107,7 @@ def test_mandatory_missing_product_group_id_definition(data_path, csaf_schema_pa
                     {
                         "category": "vendor_fix",
                         "details": "Apply update.",
-                        "product_groups": ["CSAFGID-0001"],
+                        "group_ids": ["CSAFGID-0001"],
                     }
                 ],
             }
@@ -3021,7 +3118,7 @@ def test_mandatory_missing_product_group_id_definition(data_path, csaf_schema_pa
 
     # Test case 1: Missing Product Group ID definition
     doc1 = copy.deepcopy(base_csaf_doc)
-    doc1["vulnerabilities"][0]["remediations"][0]["product_groups"].append(
+    doc1["vulnerabilities"][0]["remediations"][0]["group_ids"].append(
         "CSAFGID-0002"  # Referenced but not defined
     )
     temp_file1 = data_path / "temp_missing_product_group_id.json"
