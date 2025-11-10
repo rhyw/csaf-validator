@@ -100,6 +100,11 @@ class Rule(Enum):
         "6.1.23 Multiple Use of Same CVE",
         "It MUST be tested that a CVE is not used in multiple vulnerability items.",
     )
+    MANDATORY_MULTIPLE_DEFINITION_IN_INVOLVEMENTS = (
+        "6.1.24 Multiple Definition in Involvements",
+        "It MUST be tested that items of the list of involvements do not contain "
+        "the same `party` regardless of its `status` more than once at any `date`.",
+    )
     MANDATORY_PROHIBITED_DOCUMENT_CATEGORY_NAME = (
         "6.2.26 Prohibited Document Category Name",
         "It MUST be tested that the document category is not equal to the (case "
@@ -1156,6 +1161,40 @@ def check_mandatory_multiple_use_of_same_cve(doc):
                 f"CVE '{dup}' is used in multiple vulnerability items.",
             )
         )
+
+    return errors
+
+
+def check_mandatory_multiple_definition_in_involvements(doc):
+    """
+    6.1.24 Multiple Definition in Involvements
+    It MUST be tested that items of the list of involvements do not contain the
+    same `party` regardless of its `status` more than once at any `date`.
+    """
+    errors = []
+    if "vulnerabilities" not in doc:
+        return errors
+
+    for vuln_index, vuln in enumerate(doc.get("vulnerabilities", [])):
+        if "involvements" not in vuln:
+            continue
+
+        seen_involvements = set()
+        for involvement in vuln.get("involvements", []):
+            party = involvement.get("party")
+            date = involvement.get("date")
+            if party and date:
+                involvement_tuple = (party, date)
+                if involvement_tuple in seen_involvements:
+                    errors.append(
+                        ValidationError(
+                            Rule.MANDATORY_MULTIPLE_DEFINITION_IN_INVOLVEMENTS.name,
+                            f"Duplicate involvement for party '{party}' on date '{date}' "
+                            f"in vulnerability {vuln_index}.",
+                        )
+                    )
+                else:
+                    seen_involvements.add(involvement_tuple)
 
     return errors
 

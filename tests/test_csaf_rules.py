@@ -1376,24 +1376,126 @@ def test_mandatory_invalid_cvss_computation(
 
             temp_file.unlink()
 
-        @pytest.mark.skip(reason="Not implemented yet")
-        def test_mandatory_multiple_definition_in_involvements():
+        @pytest.mark.parametrize(
+            "involvements, is_valid, error_message_part",
+            [
+                # Valid: No duplicates
+                (
+                    [
+                        {
+                            "party": "vendor",
+                            "status": "in_progress",
+                            "date": "2023-01-01T00:00:00Z",
+                        },
+                        {
+                            "party": "researcher",
+                            "status": "completed",
+                            "date": "2023-01-01T00:00:00Z",
+                        },
+                    ],
+                    True,
+                    None,
+                ),
+                # Valid: Same party, different dates
+                (
+                    [
+                        {
+                            "party": "vendor",
+                            "status": "in_progress",
+                            "date": "2023-01-01T00:00:00Z",
+                        },
+                        {
+                            "party": "vendor",
+                            "status": "completed",
+                            "date": "2023-01-02T00:00:00Z",
+                        },
+                    ],
+                    True,
+                    None,
+                ),
+                # Invalid: Same party, same date
+                (
+                    [
+                        {
+                            "party": "vendor",
+                            "status": "in_progress",
+                            "date": "2023-01-01T00:00:00Z",
+                        },
+                        {
+                            "party": "vendor",
+                            "status": "completed",
+                            "date": "2023-01-01T00:00:00Z",
+                        },
+                    ],
+                    False,
+                    "Duplicate involvement for party 'vendor' on date '2023-01-01T00:00:00Z'",
+                ),
+            ],
+        )
+        def test_mandatory_multiple_definition_in_involvements(
+            involvements, is_valid, error_message_part, data_path, csaf_schema_path
+        ):
             """
-
             6.1.24 Multiple Definition in Involvements
-
-
-
-            It MUST be tested that items of the list of involvements do not contain the
-
-
-
-            same `party` regardless of its `status` more than once at any `date`.
-
-
-
             """
+            base_csaf_doc = {
+                "document": {
+                    "csaf_version": "2.0",
+                    "publisher": {
+                        "category": "vendor",
+                        "name": "Example Company",
+                        "namespace": "https://example.com",
+                    },
+                    "title": "Test Advisory for Involvements",
+                    "tracking": {
+                        "id": "TEST-2023-0019",
+                        "status": "final",
+                        "version": "1.0.0",
+                        "initial_release_date": "2023-01-01T00:00:00Z",
+                        "current_release_date": "2023-01-01T00:00:00Z",
+                        "revision_history": [
+                            {
+                                "date": "2023-01-01T00:00:00Z",
+                                "number": "1.0.0",
+                                "summary": "Initial release",
+                            }
+                        ],
+                    },
+                    "category": "csaf_base",
+                },
+                "vulnerabilities": [
+                    {
+                        "title": "Vulnerability with Involvements",
+                        "involvements": involvements,
+                    }
+                ],
+            }
 
+            validator = Validator(csaf_schema_path)
+            doc = copy.deepcopy(base_csaf_doc)
+
+            temp_file = data_path / "temp_involvements_test.json"
+            with open(temp_file, "w") as f:
+                json.dump(doc, f, indent=2)
+
+            result = validator.validate(temp_file)
+
+            if is_valid:
+                assert result.is_valid
+            else:
+                assert not result.is_valid
+                assert any(
+                    err.rule == Rule.MANDATORY_MULTIPLE_DEFINITION_IN_INVOLVEMENTS.name
+                    and error_message_part in err.message
+                    for err in result.errors
+                )
+            temp_file.unlink()
+
+        @pytest.mark.skip(reason="Not implemented yet")
+        def test_mandatory_multiple_use_of_same_hash_algorithm():
+            """
+            6.1.25 Multiple Use of Same Hash Algorithm
+            """
             pass
 
         @pytest.mark.parametrize(
