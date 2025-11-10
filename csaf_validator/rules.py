@@ -105,6 +105,11 @@ class Rule(Enum):
         "It MUST be tested that items of the list of involvements do not contain "
         "the same `party` regardless of its `status` more than once at any `date`.",
     )
+    MANDATORY_MULTIPLE_USE_OF_SAME_HASH_ALGORITHM = (
+        "6.1.25 Multiple Use of Same Hash Algorithm",
+        "It MUST be tested that the same hash algorithm is not used multiple "
+        "times in one item of hashes.",
+    )
     MANDATORY_PROHIBITED_DOCUMENT_CATEGORY_NAME = (
         "6.2.26 Prohibited Document Category Name",
         "It MUST be tested that the document category is not equal to the (case "
@@ -1195,6 +1200,81 @@ def check_mandatory_multiple_definition_in_involvements(doc):
                     )
                 else:
                     seen_involvements.add(involvement_tuple)
+
+    return errors
+
+
+def check_mandatory_multiple_use_of_same_hash_algorithm(doc):
+    """
+    6.1.25 Multiple Use of Same Hash Algorithm
+    It MUST be tested that the same hash algorithm is not used multiple times
+    in one item of hashes.
+    """
+    errors = []
+    if "product_tree" not in doc:
+        return errors
+
+    def check_hashes(hashes, path):
+        if not isinstance(hashes, list):
+            return
+        for i, hash_item in enumerate(hashes):
+            if "file_hashes" in hash_item:
+                algorithms = [
+                    file_hash.get("algorithm")
+                    for file_hash in hash_item["file_hashes"]
+                    if file_hash.get("algorithm")
+                ]
+                seen = set()
+                duplicates = {
+                    algo for algo in algorithms if algo in seen or seen.add(algo)
+                }
+                for dup in duplicates:
+                    errors.append(
+                        ValidationError(
+                            Rule.MANDATORY_MULTIPLE_USE_OF_SAME_HASH_ALGORITHM.name,
+                            f"Duplicate hash algorithm '{dup}' found at {path}[{i}].",
+                        )
+                    )
+
+    def find_hashes_in_product(product, path):
+        if (
+            "product_identification_helper" in product
+            and "hashes" in product["product_identification_helper"]
+        ):
+            check_hashes(
+                product["product_identification_helper"]["hashes"],
+                f"{path}/product_identification_helper/hashes",
+            )
+
+    product_tree = doc["product_tree"]
+
+    # Check in full_product_names
+    for i, full_product_name in enumerate(product_tree.get("full_product_names", [])):
+        find_hashes_in_product(
+            full_product_name, f"/product_tree/full_product_names[{i}]"
+        )
+
+    # Check in relationships
+    for i, relationship in enumerate(product_tree.get("relationships", [])):
+        if "full_product_name" in relationship:
+            find_hashes_in_product(
+                relationship["full_product_name"],
+                f"/product_tree/relationships[{i}]/full_product_name",
+            )
+
+    # Check in branches (recursively)
+    def find_hashes_in_branches(branches, path):
+        for i, branch in enumerate(branches):
+            branch_path = f"{path}[{i}]"
+            if "product" in branch:
+                find_hashes_in_product(branch["product"], f"{branch_path}/product")
+            if "branches" in branch:
+                find_hashes_in_branches(branch["branches"], f"{branch_path}/branches")
+
+    if "branches" in product_tree:
+        find_hashes_in_branches(
+            product_tree.get("branches", []), "/product_tree/branches"
+        )
 
     return errors
 

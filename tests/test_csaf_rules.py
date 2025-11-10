@@ -1491,12 +1491,100 @@ def test_mandatory_invalid_cvss_computation(
                 )
             temp_file.unlink()
 
-        @pytest.mark.skip(reason="Not implemented yet")
-        def test_mandatory_multiple_use_of_same_hash_algorithm():
+        @pytest.mark.parametrize(
+            "hashes, is_valid, error_message_part",
+            [
+                # Valid: No duplicate hash algorithms
+                (
+                    [
+                        {
+                            "file_hashes": [
+                                {"algorithm": "sha256", "value": "abc"},
+                                {"algorithm": "sha512", "value": "def"},
+                            ],
+                            "filename": "file1.zip",
+                        }
+                    ],
+                    True,
+                    None,
+                ),
+                # Invalid: Duplicate hash algorithms
+                (
+                    [
+                        {
+                            "file_hashes": [
+                                {"algorithm": "sha256", "value": "abc"},
+                                {"algorithm": "sha256", "value": "xyz"},
+                            ],
+                            "filename": "file1.zip",
+                        }
+                    ],
+                    False,
+                    "Duplicate hash algorithm 'sha256'",
+                ),
+            ],
+        )
+        def test_mandatory_multiple_use_of_same_hash_algorithm(
+            hashes, is_valid, error_message_part, data_path, csaf_schema_path
+        ):
             """
             6.1.25 Multiple Use of Same Hash Algorithm
             """
-            pass
+            base_csaf_doc = {
+                "document": {
+                    "csaf_version": "2.0",
+                    "publisher": {
+                        "category": "vendor",
+                        "name": "Example Company",
+                        "namespace": "https://example.com",
+                    },
+                    "title": "Test Advisory for Hash Algorithms",
+                    "tracking": {
+                        "id": "TEST-2023-0020",
+                        "status": "final",
+                        "version": "1.0.0",
+                        "initial_release_date": "2023-01-01T00:00:00Z",
+                        "current_release_date": "2023-01-01T00:00:00Z",
+                        "revision_history": [
+                            {
+                                "date": "2023-01-01T00:00:00Z",
+                                "number": "1.0.0",
+                                "summary": "Initial release",
+                            }
+                        ],
+                    },
+                    "category": "csaf_base",
+                },
+                "product_tree": {
+                    "full_product_names": [
+                        {
+                            "product_id": "CSAFPID-0001",
+                            "name": "Product A",
+                            "product_identification_helper": {"hashes": hashes},
+                        }
+                    ]
+                },
+            }
+
+            validator = Validator(csaf_schema_path)
+            doc = copy.deepcopy(base_csaf_doc)
+
+            temp_file = data_path / "temp_hash_algorithm_test.json"
+            with open(temp_file, "w") as f:
+                json.dump(doc, f, indent=2)
+
+            result = validator.validate(temp_file)
+
+            if is_valid:
+                assert result.is_valid
+            else:
+                assert not result.is_valid
+                assert any(
+                    err.rule == Rule.MANDATORY_MULTIPLE_USE_OF_SAME_HASH_ALGORITHM.name
+                    and error_message_part in err.message
+                    for err in result.errors
+                )
+            temp_file.unlink()
 
         @pytest.mark.parametrize(
             "lang, source_lang, is_valid, error_message_part",
